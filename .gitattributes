@@ -1,0 +1,28 @@
+
+# Automatically detect text files
+* text=auto
+
+# .NET source files
+*.cs text eol=lf
+*.csproj text eol=lf
+*.slnx text eol=lf
+*.props text eol=lf
+*.targets text eol=lf
+
+# Configuration files
+*.json text eol=lf
+*.xml text eol=lf
+*.editorconfig text eol=lf
+*.gitignore text eol=lf
+*.gitattributes text eol=lf
+
+# Documentation
+*.md text eol=lf
+
+# CI/CD
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Windows scripts
+*.bat text eol=crlf
+*.cmd text eol=crlf

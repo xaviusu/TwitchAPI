@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/Solution items/">
+    <File Path=".editorconfig" />
+    <File Path="Directory.Build.props" />
+    <File Path="global.json" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/TwitchAPI.Api/TwitchAPI.Api.csproj" />
+    <Project Path="src/TwitchAPI.Application/TwitchAPI.Application.csproj" />
+    <Project Path="src/TwitchAPI.Domain/TwitchAPI.Domain.csproj" />
+    <Project Path="src/TwitchAPI.Infrastructure/TwitchAPI.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TwitchAPI.Tests/TwitchAPI.Tests.csproj" />
+  </Folder>
+</Solution>

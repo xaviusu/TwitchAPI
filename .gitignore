@@ -1,0 +1,43 @@
+
+# Build output
+**/bin/
+**/obj/
+artifacts/
+publish/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.rsuser
+*.userosscache
+*.sln.docstates
+
+# Other IDEs
+.idea/
+*.DotSettings.user
+
+# Test results and coverage
+**/TestResults/
+coverage/
+*.coverage
+*.coveragexml
+coverage.cobertura.xml
+
+# Logs
+*.log
+*.binlog
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+**/appsettings.Local.json
+**/appsettings.*.local.json
+*.pfx
+*.publishsettings
+*.pubxml
+
+# Operating systems
+.DS_Store
+Thumbs.db
