@@ -9,7 +9,8 @@ namespace TwitchAPI.Api.Controllers;
 [ApiController]
 [Route("analytics")]
 public sealed class AnalyticsController(
-    ITwitchUserService twitchUserService) : ControllerBase
+    ITwitchUserService twitchUserService,
+    ITwitchStreamService twitchStreamService) : ControllerBase
 {
     [HttpGet("user")]
     [ProducesResponseType(
@@ -20,19 +21,13 @@ public sealed class AnalyticsController(
         StatusCodes.Status400BadRequest)]
     [ProducesResponseType(
         typeof(ApiErrorResponse),
+        StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(
+        typeof(ApiErrorResponse),
         StatusCodes.Status404NotFound)]
     [ProducesResponseType(
         typeof(ApiErrorResponse),
         StatusCodes.Status500InternalServerError)]
-    [ProducesResponseType(
-        typeof(ApiErrorResponse),
-        StatusCodes.Status502BadGateway)]
-    [ProducesResponseType(
-        typeof(ApiErrorResponse),
-        StatusCodes.Status503ServiceUnavailable)]
-    [ProducesResponseType(
-        typeof(ApiErrorResponse),
-        StatusCodes.Status504GatewayTimeout)]
     public async Task<IActionResult> GetUserAsync(
         [FromQuery(Name = "id")] string? id,
         CancellationToken cancellationToken)
@@ -65,6 +60,31 @@ public sealed class AnalyticsController(
             user.OfflineImageUrl,
             user.ViewCount,
             user.CreatedAt);
+
+        return Ok(response);
+    }
+
+    [HttpGet("streams")]
+    [ProducesResponseType(
+        typeof(IReadOnlyList<TwitchStreamResponse>),
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        typeof(ApiErrorResponse),
+        StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(
+        typeof(ApiErrorResponse),
+        StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetStreamsAsync(
+        CancellationToken cancellationToken)
+    {
+        var streams = await twitchStreamService.GetLiveStreamsAsync(
+            cancellationToken);
+
+        var response = streams
+            .Select(stream => new TwitchStreamResponse(
+                stream.Title,
+                stream.UserName))
+            .ToList();
 
         return Ok(response);
     }

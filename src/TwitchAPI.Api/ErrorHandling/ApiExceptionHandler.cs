@@ -1,4 +1,3 @@
-using System.Globalization;
 using Microsoft.AspNetCore.Diagnostics;
 using TwitchAPI.Api.Contracts;
 using TwitchAPI.Application.Exceptions;
@@ -26,38 +25,26 @@ public sealed partial class ApiExceptionHandler(
         int statusCode;
         string message;
 
-        switch (exception)
+        if (exception is ExternalServiceException
+            {
+                Kind: ExternalServiceErrorKind.AuthenticationFailed
+            } authenticationFailure)
         {
-            case ExternalServiceException { Kind: ExternalServiceErrorKind.AuthenticationFailed } external:
-                statusCode = StatusCodes.Status502BadGateway;
-                message = "The upstream service is unavailable.";
-                LogUpstreamAuthenticationFailure(logger, external);
-                break;
-
-            case ExternalServiceException { Kind: ExternalServiceErrorKind.Timeout } external:
-                statusCode = StatusCodes.Status504GatewayTimeout;
-                message = "The upstream service did not respond in time.";
-                LogUpstreamFailure(logger, external.Kind, external);
-                break;
-
-            case ExternalServiceException { Kind: ExternalServiceErrorKind.RateLimited } external:
-                statusCode = StatusCodes.Status503ServiceUnavailable;
-                message = "The upstream service is busy. Try again later.";
-                SetRetryAfter(httpContext, external.RetryAfter);
-                LogUpstreamFailure(logger, external.Kind, external);
-                break;
-
-            case ExternalServiceException external:
-                statusCode = StatusCodes.Status502BadGateway;
-                message = "The upstream service is unavailable.";
-                LogUpstreamFailure(logger, external.Kind, external);
-                break;
-
-            default:
-                statusCode = StatusCodes.Status500InternalServerError;
-                message = "Internal server error.";
-                LogUnhandledException(logger, exception);
-                break;
+            statusCode = StatusCodes.Status401Unauthorized;
+            message = "Unauthorized. Twitch access token is invalid or has expired.";
+            LogTwitchAuthenticationFailure(logger, authenticationFailure);
+        }
+        else if (exception is ExternalServiceException externalFailure)
+        {
+            statusCode = StatusCodes.Status500InternalServerError;
+            message = "Internal server error.";
+            LogTwitchFailure(logger, externalFailure.Kind, externalFailure);
+        }
+        else
+        {
+            statusCode = StatusCodes.Status500InternalServerError;
+            message = "Internal server error.";
+            LogUnhandledException(logger, exception);
         }
 
         httpContext.Response.StatusCode = statusCode;
@@ -69,31 +56,16 @@ public sealed partial class ApiExceptionHandler(
         return true;
     }
 
-    private static void SetRetryAfter(
-        HttpContext httpContext,
-        TimeSpan? retryAfter)
-    {
-        if (retryAfter is not { } delay)
-        {
-            return;
-        }
-
-        long seconds = Math.Max(1, (long)Math.Ceiling(delay.TotalSeconds));
-
-        httpContext.Response.Headers.RetryAfter =
-            seconds.ToString(CultureInfo.InvariantCulture);
-    }
-
     [LoggerMessage(LogLevel.Information, "The client aborted the request.")]
     private static partial void LogRequestAborted(ILogger logger);
 
-    [LoggerMessage(LogLevel.Error, "Twitch rejected the application credentials. Check Twitch:ClientId and Twitch:ClientSecret.")]
-    private static partial void LogUpstreamAuthenticationFailure(
+    [LoggerMessage(LogLevel.Error, "Twitch rejected the access token or the application credentials. Check Twitch:ClientId and Twitch:ClientSecret.")]
+    private static partial void LogTwitchAuthenticationFailure(
         ILogger logger,
         Exception exception);
 
-    [LoggerMessage(LogLevel.Warning, "Twitch request failed ({Kind}).")]
-    private static partial void LogUpstreamFailure(
+    [LoggerMessage(LogLevel.Error, "Twitch request failed ({Kind}).")]
+    private static partial void LogTwitchFailure(
         ILogger logger,
         ExternalServiceErrorKind kind,
         Exception exception);

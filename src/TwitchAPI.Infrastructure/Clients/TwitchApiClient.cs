@@ -13,8 +13,10 @@ using TwitchAPI.Infrastructure.Clients.Models;
 
 namespace TwitchAPI.Infrastructure.Clients;
 
-public sealed class TwitchApiClient : ITwitchUserClient
+public sealed class TwitchApiClient : ITwitchUserClient, ITwitchStreamClient
 {
+    public const int LiveStreamsPageSize = 20;
+
     private readonly HttpClient _httpClient;
     private readonly ITwitchAppAccessTokenProvider _tokenProvider;
     private readonly TwitchOAuthOptions _options;
@@ -29,15 +31,72 @@ public sealed class TwitchApiClient : ITwitchUserClient
         _options = options.Value;
     }
 
-    public async Task<TwitchUser?> GetUserAsync(
+    public Task<TwitchUser?> GetUserAsync(
         string id,
         CancellationToken cancellationToken = default)
     {
+        return ExecuteAsync<TwitchUser?>(
+            async () =>
+            {
+                TwitchUsersEnvelope? envelope =
+                    await GetAsync<TwitchUsersEnvelope>(
+                        $"users?id={Uri.EscapeDataString(id)}",
+                        cancellationToken);
+
+                TwitchUserPayload? user = envelope?.Data?.FirstOrDefault();
+
+                if (user is null)
+                {
+                    return null;
+                }
+
+                return new TwitchUser(
+                    user.Id,
+                    user.Login,
+                    user.DisplayName,
+                    user.Type,
+                    user.BroadcasterType,
+                    user.Description,
+                    user.ProfileImageUrl,
+                    user.OfflineImageUrl,
+                    user.ViewCount,
+                    user.CreatedAt);
+            },
+            cancellationToken);
+    }
+
+    public Task<IReadOnlyList<TwitchStreamInfo>> GetLiveStreamsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return ExecuteAsync<IReadOnlyList<TwitchStreamInfo>>(
+            async () =>
+            {
+                TwitchStreamsEnvelope? envelope =
+                    await GetAsync<TwitchStreamsEnvelope>(
+                        $"streams?first={LiveStreamsPageSize}",
+                        cancellationToken);
+
+                if (envelope?.Data is null)
+                {
+                    return [];
+                }
+
+                return envelope.Data
+                    .Select(stream => new TwitchStreamInfo(
+                        stream.Title,
+                        stream.UserName))
+                    .ToList();
+            },
+            cancellationToken);
+    }
+
+    private static async Task<T> ExecuteAsync<T>(
+        Func<Task<T>> operation,
+        CancellationToken cancellationToken)
+    {
         try
         {
-            return await GetUserCoreAsync(
-                id,
-                cancellationToken);
+            return await operation();
         }
         catch (OperationCanceledException exception)
             when (!cancellationToken.IsCancellationRequested)
@@ -63,22 +122,23 @@ public sealed class TwitchApiClient : ITwitchUserClient
         }
     }
 
-    private async Task<TwitchUser?> GetUserCoreAsync(
-        string id,
+    private async Task<T?> GetAsync<T>(
+        string endpoint,
         CancellationToken cancellationToken)
     {
         string token = await GetTokenAsync(cancellationToken);
 
-        using var response = await SendRequestAsync(
-            id,
+        using (var response = await SendRequestAsync(
+            endpoint,
             token,
-            cancellationToken);
-
-        if (response.StatusCode != HttpStatusCode.Unauthorized)
+            cancellationToken))
         {
-            return await ReadUserAsync(
-                response,
-                cancellationToken);
+            if (response.StatusCode != HttpStatusCode.Unauthorized)
+            {
+                return await ReadContentAsync<T>(
+                    response,
+                    cancellationToken);
+            }
         }
 
         await _tokenProvider.InvalidateAsync(
@@ -89,11 +149,11 @@ public sealed class TwitchApiClient : ITwitchUserClient
             cancellationToken);
 
         using var retryResponse = await SendRequestAsync(
-            id,
+            endpoint,
             renewedToken,
             cancellationToken);
 
-        return await ReadUserAsync(
+        return await ReadContentAsync<T>(
             retryResponse,
             cancellationToken);
     }
@@ -127,13 +187,10 @@ public sealed class TwitchApiClient : ITwitchUserClient
     }
 
     private async Task<HttpResponseMessage> SendRequestAsync(
-        string id,
+        string endpoint,
         string token,
         CancellationToken cancellationToken)
     {
-        string endpoint =
-            $"users?id={Uri.EscapeDataString(id)}";
-
         using var request = new HttpRequestMessage(
             HttpMethod.Get,
             endpoint);
@@ -152,7 +209,7 @@ public sealed class TwitchApiClient : ITwitchUserClient
             cancellationToken);
     }
 
-    private static async Task<TwitchUser?> ReadUserAsync(
+    private static async Task<T?> ReadContentAsync<T>(
         HttpResponseMessage response,
         CancellationToken cancellationToken)
     {
@@ -173,29 +230,8 @@ public sealed class TwitchApiClient : ITwitchUserClient
 
         response.EnsureSuccessStatusCode();
 
-        TwitchUsersEnvelope? envelope =
-            await response.Content
-                .ReadFromJsonAsync<TwitchUsersEnvelope>(
-                    cancellationToken: cancellationToken);
-
-        TwitchUserPayload? user = envelope?.Data?.FirstOrDefault();
-
-        if (user is null)
-        {
-            return null;
-        }
-
-        return new TwitchUser(
-            user.Id,
-            user.Login,
-            user.DisplayName,
-            user.Type,
-            user.BroadcasterType,
-            user.Description,
-            user.ProfileImageUrl,
-            user.OfflineImageUrl,
-            user.ViewCount,
-            user.CreatedAt);
+        return await response.Content.ReadFromJsonAsync<T>(
+            cancellationToken: cancellationToken);
     }
 
     private static TimeSpan? GetRetryAfter(HttpResponseMessage response)

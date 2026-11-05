@@ -116,27 +116,32 @@ public sealed class AnalyticsEndpointTests
             "User not found.");
     }
 
+    [Fact]
+    public async Task GetUserAsyncWhenTwitchAuthenticationFailsReturns401()
+    {
+        using var factory = CreateFactory(
+            _ => Task.FromException<TwitchUser?>(
+                new ExternalServiceException(
+                    ExternalServiceErrorKind.AuthenticationFailed,
+                    "Simulated failure.")));
+
+        using var client = CreateClient(factory);
+
+        using var response = await client.GetAsync(
+            "/analytics/user?id=1234");
+
+        await AssertErrorAsync(
+            response,
+            HttpStatusCode.Unauthorized,
+            "Unauthorized. Twitch access token is invalid or has expired.");
+    }
+
     [Theory]
-    [InlineData(
-        ExternalServiceErrorKind.AuthenticationFailed,
-        HttpStatusCode.BadGateway,
-        "The upstream service is unavailable.")]
-    [InlineData(
-        ExternalServiceErrorKind.Unavailable,
-        HttpStatusCode.BadGateway,
-        "The upstream service is unavailable.")]
-    [InlineData(
-        ExternalServiceErrorKind.Timeout,
-        HttpStatusCode.GatewayTimeout,
-        "The upstream service did not respond in time.")]
-    [InlineData(
-        ExternalServiceErrorKind.RateLimited,
-        HttpStatusCode.ServiceUnavailable,
-        "The upstream service is busy. Try again later.")]
-    public async Task GetUserAsyncWhenTwitchFailsMapsToGatewayStatus(
-        ExternalServiceErrorKind kind,
-        HttpStatusCode expectedStatus,
-        string expectedMessage)
+    [InlineData(ExternalServiceErrorKind.Unavailable)]
+    [InlineData(ExternalServiceErrorKind.Timeout)]
+    [InlineData(ExternalServiceErrorKind.RateLimited)]
+    public async Task GetUserAsyncWhenTwitchFailsReturns500(
+        ExternalServiceErrorKind kind)
     {
         using var factory = CreateFactory(
             _ => Task.FromException<TwitchUser?>(
@@ -149,32 +154,8 @@ public sealed class AnalyticsEndpointTests
 
         await AssertErrorAsync(
             response,
-            expectedStatus,
-            expectedMessage);
-    }
-
-    [Fact]
-    public async Task GetUserAsyncWhenRateLimitedSetsRetryAfter()
-    {
-        using var factory = CreateFactory(
-            _ => Task.FromException<TwitchUser?>(
-                new ExternalServiceException(
-                    ExternalServiceErrorKind.RateLimited,
-                    "Simulated failure.",
-                    retryAfter: TimeSpan.FromSeconds(12.3))));
-
-        using var client = CreateClient(factory);
-
-        using var response = await client.GetAsync(
-            "/analytics/user?id=1234");
-
-        Assert.Equal(
-            HttpStatusCode.ServiceUnavailable,
-            response.StatusCode);
-
-        Assert.Equal(
-            TimeSpan.FromSeconds(13),
-            response.Headers.RetryAfter?.Delta);
+            HttpStatusCode.InternalServerError,
+            "Internal server error.");
     }
 
     [Fact]

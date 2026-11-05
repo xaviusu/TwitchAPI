@@ -39,9 +39,7 @@ public static class DependencyInjection
             ITwitchAppAccessTokenProvider,
             TwitchAppAccessTokenProvider>();
 
-        services.AddHttpClient<
-            ITwitchUserClient,
-            TwitchApiClient>(
+        services.AddHttpClient<TwitchApiClient>(
             client =>
             {
                 client.BaseAddress = new Uri(
@@ -49,6 +47,14 @@ public static class DependencyInjection
 
                 client.Timeout = TimeSpan.FromSeconds(15);
             });
+
+        services.AddTransient<ITwitchUserClient>(
+            serviceProvider =>
+                serviceProvider.GetRequiredService<TwitchApiClient>());
+
+        services.AddTransient<ITwitchStreamClient>(
+            serviceProvider =>
+                serviceProvider.GetRequiredService<TwitchApiClient>());
 
         return services;
     }

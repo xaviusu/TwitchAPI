@@ -26,6 +26,10 @@ builder.Services.AddScoped<
     ITwitchUserService,
     TwitchUserService>();
 
+builder.Services.AddScoped<
+    ITwitchStreamService,
+    TwitchStreamService>();
+
 builder.Services.AddInfrastructure(
     builder.Configuration);
 

@@ -30,6 +30,46 @@ public sealed class TwitchApiClientTests
         }
         """;
 
+    private const string StreamsResponse = """
+        {
+          "data": [
+            {
+              "id": "1",
+              "user_id": "101",
+              "user_login": "user1",
+              "user_name": "User1",
+              "game_id": "33214",
+              "game_name": "Fortnite",
+              "type": "live",
+              "title": "Title of Stream 1",
+              "viewer_count": 100,
+              "started_at": "2026-01-01T00:00:00Z",
+              "language": "en",
+              "thumbnail_url": "https://example.com/1-{width}x{height}.jpg",
+              "tags": [],
+              "is_mature": false
+            },
+            {
+              "id": "2",
+              "user_id": "102",
+              "user_login": "user2",
+              "user_name": "User2",
+              "game_id": "509658",
+              "game_name": "Just Chatting",
+              "type": "live",
+              "title": "Title of Stream 2",
+              "viewer_count": 50,
+              "started_at": "2026-01-01T00:00:00Z",
+              "language": "es",
+              "thumbnail_url": "https://example.com/2-{width}x{height}.jpg",
+              "tags": [],
+              "is_mature": false
+            }
+          ],
+          "pagination": { "cursor": "abc" }
+        }
+        """;
+
     [Fact]
     public async Task GetUserAsyncWithValidUserReturnsUser()
     {
@@ -314,6 +354,147 @@ public sealed class TwitchApiClientTests
         var exception = await Assert.ThrowsAsync<
             ExternalServiceException>(
             () => client.GetUserAsync("1234"));
+
+        // Assert
+        Assert.Equal(
+            ExternalServiceErrorKind.Unavailable,
+            exception.Kind);
+    }
+
+    [Fact]
+    public async Task GetLiveStreamsAsyncReturnsTitleAndUserName()
+    {
+        // Arrange
+        var tokenProvider = new FakeTokenProvider();
+
+        using var httpClient = CreateHttpClient(request =>
+        {
+            Assert.Equal(
+                $"/helix/streams?first={TwitchApiClient.LiveStreamsPageSize}",
+                request.RequestUri?.PathAndQuery);
+
+            Assert.Equal(
+                "first-token",
+                request.Headers.Authorization?.Parameter);
+
+            Assert.Equal(
+                "test-client",
+                request.Headers.GetValues("Client-Id").Single());
+
+            return JsonResponse(StreamsResponse);
+        });
+
+        var client = CreateClient(httpClient, tokenProvider);
+
+        // Act
+        var streams = await client.GetLiveStreamsAsync();
+
+        // Assert
+        Assert.Collection(
+            streams,
+            stream =>
+            {
+                Assert.Equal("Title of Stream 1", stream.Title);
+                Assert.Equal("User1", stream.UserName);
+            },
+            stream =>
+            {
+                Assert.Equal("Title of Stream 2", stream.Title);
+                Assert.Equal("User2", stream.UserName);
+            });
+    }
+
+    [Fact]
+    public async Task GetLiveStreamsAsyncWithNoStreamsReturnsEmptyList()
+    {
+        // Arrange
+        var tokenProvider = new FakeTokenProvider();
+
+        using var httpClient = CreateHttpClient(_ =>
+            JsonResponse("""{"data":[],"pagination":{}}"""));
+
+        var client = CreateClient(httpClient, tokenProvider);
+
+        // Act
+        var streams = await client.GetLiveStreamsAsync();
+
+        // Assert
+        Assert.Empty(streams);
+    }
+
+    [Fact]
+    public async Task GetLiveStreamsAsyncWhenUnauthorizedRetriesOnce()
+    {
+        // Arrange
+        var tokenProvider = new FakeTokenProvider();
+        int requestCount = 0;
+
+        using var httpClient = CreateHttpClient(request =>
+        {
+            requestCount++;
+
+            string? token = request.Headers.Authorization?.Parameter;
+
+            if (requestCount == 1)
+            {
+                Assert.Equal("first-token", token);
+
+                return new HttpResponseMessage(HttpStatusCode.Unauthorized);
+            }
+
+            Assert.Equal("renewed-token", token);
+
+            return JsonResponse(StreamsResponse);
+        });
+
+        var client = CreateClient(httpClient, tokenProvider);
+
+        // Act
+        var streams = await client.GetLiveStreamsAsync();
+
+        // Assert
+        Assert.Equal(2, streams.Count);
+        Assert.Equal(2, requestCount);
+        Assert.Equal(1, tokenProvider.InvalidationCount);
+    }
+
+    [Fact]
+    public async Task GetLiveStreamsAsyncWhenRetryFailsThrowsAuthenticationFailed()
+    {
+        // Arrange
+        var tokenProvider = new FakeTokenProvider();
+
+        using var httpClient = CreateHttpClient(_ =>
+            new HttpResponseMessage(HttpStatusCode.Unauthorized));
+
+        var client = CreateClient(httpClient, tokenProvider);
+
+        // Act
+        var exception = await Assert.ThrowsAsync<
+            ExternalServiceException>(
+            () => client.GetLiveStreamsAsync());
+
+        // Assert
+        Assert.Equal(
+            ExternalServiceErrorKind.AuthenticationFailed,
+            exception.Kind);
+    }
+
+    [Fact]
+    public async Task GetLiveStreamsAsyncWhenTwitchFailsThrowsUnavailable()
+    {
+        // Arrange
+        var tokenProvider = new FakeTokenProvider();
+
+        using var httpClient = CreateHttpClient(_ =>
+            new HttpResponseMessage(HttpStatusCode.InternalServerError));
+
+        var client = CreateClient(httpClient, tokenProvider);
+
+        // Act
+        var exception = await Assert.ThrowsAsync<
+            ExternalServiceException>(
+            () => client.GetLiveStreamsAsync());
 
         // Assert
         Assert.Equal(
