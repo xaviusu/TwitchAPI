@@ -1,8 +1,10 @@
 <Solution>
   <Folder Name="/Solution items/">
     <File Path=".editorconfig" />
+    <File Path=".gitattributes" />
     <File Path="Directory.Build.props" />
     <File Path="global.json" />
+    <File Path="README.md" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/TwitchAPI.Api/TwitchAPI.Api.csproj" />

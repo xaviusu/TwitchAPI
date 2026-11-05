@@ -4,20 +4,15 @@ using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace TwitchAPI.Tests.Api;
 
-public sealed class OpenApiTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class OpenApiTests
 {
-    private readonly WebApplicationFactory<Program> _factory;
-
-    public OpenApiTests(WebApplicationFactory<Program> factory)
-    {
-        _factory = factory;
-    }
-
     [Fact]
     public async Task OpenApiEndpointReturnsSuccess()
     {
         // Arrange
-        using var client = _factory.CreateClient(
+        using var factory = new TestWebApplicationFactory();
+
+        using var client = factory.CreateClient(
             new WebApplicationFactoryClientOptions
             {
                 BaseAddress = new Uri("https://localhost")
