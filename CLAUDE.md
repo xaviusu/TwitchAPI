@@ -1,0 +1,87 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project
+
+ASP.NET Core (.NET 10) REST API for a technical challenge ("Twitch Analytics"). The full spec is in `docs/enunciado.md` (Spanish) and is the source of truth. It defines two endpoints that proxy the public Twitch Helix API:
+
+- `GET /analytics/user?id=<id>` returns one Twitch user. Errors: 400 (missing or invalid id), 401 (token invalid or expired), 404 (user not found), 500.
+- `GET /analytics/streams` returns live streams as `[{ "title": ..., "user_name": ... }]`. Errors: 401, 500.
+
+Requirements from the spec that are easy to break:
+- **Response bodies must match the spec exactly**, including field names (snake_case such as `display_name`, `broadcaster_type`, `user_name`) and format. Error bodies are `{ "error": "<exact message from spec>" }`.
+- Twitch auth uses OAuth app tokens (client credentials). When Twitch returns 401, invalidate the cached token, request a new one and retry once. Return 401 only if the retry also fails or the credentials are rejected.
+- Client ID and secret come from .NET user secrets. Never write them to `appsettings*.json`.
+- When something has to be cut, the business priority is: 200 happy paths, then 401 token handling, then 404, then 400/500.
+- The README (Spanish) must keep documenting how to run the app, technical decisions and trade-offs, what was left out, and any assumptions. Update it when behavior changes.
+
+## Commands
+
+Run from the repo root. The SDK is pinned by `global.json` (10.0.403, latestFeature roll-forward, no prerelease).
+
+```powershell
+dotnet build
+dotnet test
+dotnet test --filter "FullyQualifiedName~OpenApiTests"   # single class or test
+dotnet format --verify-no-changes                        # style check (CI-style)
+dotnet run --project .\src\TwitchAPI.Api --launch-profile https
+```
+
+In Development, OpenAPI is served at `/openapi/v1.json`.
+
+## Architecture
+
+The solution file is `TwitchAPI.slnx`. It follows Clean Architecture with this dependency direction:
+
+- `Api` → `Application` → `Domain`
+- `Infrastructure` → `Application`. Infrastructure implements the contracts (interfaces) that Application defines, such as the Twitch HTTP client and the token provider.
+- `Api` → `Infrastructure` **only at the composition root** (`Program.cs`, for DI registration). Controllers must not use concrete Infrastructure types.
+
+Endpoints use MVC **controllers** (in `src/TwitchAPI.Api/Controllers/`), not Minimal APIs. `Program.cs` ends with `public partial class Program { }` so that `WebApplicationFactory<Program>` works in integration tests.
+
+The README rules out these on purpose. Don't add them without a requirement: EF Core or any persistence, CQRS, MediatR, AutoMapper, auth for the API itself, containers, and empty placeholder interfaces or services.
+
+## Build rules
+
+`Directory.Build.props` turns on nullable, .NET analyzers (`AnalysisMode=Recommended`), `EnforceCodeStyleInBuild`, and XML doc generation (CS1591 suppressed). Code style violations from `.editorconfig` surface as build warnings. The key rules are:
+- file-scoped namespaces (warning)
+- braces required on all control flow (warning)
+- no unused usings (IDE0005, warning)
+- `System` usings sorted first
+- LF line endings, 4-space indent in C#, 2-space indent in XML/JSON
+
+## Tests
+
+`tests/TwitchAPI.Tests` uses xUnit and `Microsoft.AspNetCore.Mvc.Testing`. Integration tests use `WebApplicationFactory<Program>` with base address `https://localhost`, because HTTPS redirection is enabled. Tests must not call the real Twitch API. Stub the Application-layer contracts or the `HttpMessageHandler` instead.
+
+## Conventions
+
+- No code comments; names should explain intent.
+- Classes are `sealed` unless designed for inheritance. Prefer primary constructors.
+- API contracts are `record`s with `[JsonPropertyName]` in snake_case.
+- Logging uses `[LoggerMessage]` source-generated methods.
+- Tests: `MethodWhenConditionReturnsResult` naming, Arrange / Act / Assert,
+  one behavior per test. Every status code in the spec has at least one test.
+- Integration tests must not depend on user secrets: provide fake Twitch
+  credentials in the test `WebApplicationFactory`.
+
+## Working rules
+
+- The spec wins. Never add status codes, response fields or error messages
+  that are not in `docs/enunciado.md`.
+- If the spec is ambiguous, ask before implementing. Once decided, record the
+  assumption in the README section "Dudas e hipótesis".
+- For any non-trivial change, propose a plan first and wait for approval.
+- Write or update tests before the implementation.
+- Keep changes small and focused; one concern per commit.
+- Never commit, push or change git history unless asked.
+
+## Definition of done
+
+A task is done only when all of these pass:
+1. `dotnet build` with no new warnings.
+2. `dotnet test` all green.
+3. `dotnet format --verify-no-changes` clean.
+4. Responses match `docs/enunciado.md` exactly (fields, casing, messages).
+5. README updated if behavior, setup or assumptions changed.
