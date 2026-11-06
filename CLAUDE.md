@@ -55,17 +55,6 @@ The README rules out these on purpose. Don't add them without a requirement: EF 
 
 `tests/TwitchAPI.Tests` uses xUnit and `Microsoft.AspNetCore.Mvc.Testing`. Integration tests use `WebApplicationFactory<Program>` with base address `https://localhost`, because HTTPS redirection is enabled. Tests must not call the real Twitch API. Stub the Application-layer contracts or the `HttpMessageHandler` instead.
 
-## Conventions
-
-- No code comments; names should explain intent.
-- Classes are `sealed` unless designed for inheritance. Prefer primary constructors.
-- API contracts are `record`s with `[JsonPropertyName]` in snake_case.
-- Logging uses `[LoggerMessage]` source-generated methods.
-- Tests: `MethodWhenConditionReturnsResult` naming, Arrange / Act / Assert,
-  one behavior per test. Every status code in the spec has at least one test.
-- Integration tests must not depend on user secrets: provide fake Twitch
-  credentials in the test `WebApplicationFactory`.
-
 ## Working rules
 
 - The spec wins. Never add status codes, response fields or error messages
@@ -75,7 +64,11 @@ The README rules out these on purpose. Don't add them without a requirement: EF 
 - For any non-trivial change, propose a plan first and wait for approval.
 - Write or update tests before the implementation.
 - Keep changes small and focused; one concern per commit.
-- Never commit, push or change git history unless asked.
+  - Never commit, push or change git history unless asked. Running `/implement` counts as asking to commit.
+  - For .NET / ASP.NET Core APIs, analyzers or Twitch-unrelated framework behavior,
+  check the `microsoft-learn` MCP before relying on memory.
+
+Coding standards (enforced in review): see `CODING_STANDARDS.md`.
 
 ## Definition of done
 

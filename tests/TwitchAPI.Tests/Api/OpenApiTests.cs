@@ -14,7 +14,7 @@ public sealed class OpenApiTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
-    public async Task OpenApiEndpointReturnsSuccess()
+    public async Task GetOpenApiDocumentWhenDevelopmentReturnsOk()
     {
         // Arrange
         using var client = _factory.CreateClient(
