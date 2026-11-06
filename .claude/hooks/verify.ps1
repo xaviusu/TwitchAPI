@@ -1,5 +1,6 @@
 $null = [Console]::In.ReadToEnd()
-Set-Location $env:CLAUDE_PROJECT_DIR
+$projectDir = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { Split-Path (Split-Path $PSScriptRoot -Parent) -Parent }
+Set-Location $projectDir
 
 $changed = git status --porcelain -- '*.cs' '*.csproj' '*.props'
 if (-not $changed) { exit 0 }
