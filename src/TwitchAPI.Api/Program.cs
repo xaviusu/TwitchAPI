@@ -1,9 +1,11 @@
-var builder = WebApplication.CreateBuilder(args);
+using TwitchAPI.Infrastructure;
 
+var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
+builder.Services.AddTwitchInfrastructure(builder.Configuration);
 
 var app = builder.Build();
 

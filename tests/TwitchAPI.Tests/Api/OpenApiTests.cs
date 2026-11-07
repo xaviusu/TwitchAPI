@@ -1,31 +1,19 @@
-
 using System.Net;
-using Microsoft.AspNetCore.Mvc.Testing;
+using TwitchAPI.Tests.Support;
 
 namespace TwitchAPI.Tests.Api;
 
-public sealed class OpenApiTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class OpenApiTests
 {
-    private readonly WebApplicationFactory<Program> _factory;
-
-    public OpenApiTests(WebApplicationFactory<Program> factory)
-    {
-        _factory = factory;
-    }
-
     [Fact]
     public async Task GetOpenApiDocumentWhenDevelopmentReturnsOk()
     {
         // Arrange
-        using var client = _factory.CreateClient(
-            new WebApplicationFactoryClientOptions
-            {
-                BaseAddress = new Uri("https://localhost")
-            });
+        using var factory = new TwitchApiFactory();
+        using var client = factory.CreateApiClient();
 
         // Act
-        using var response = await client.GetAsync(
-            "/openapi/v1.json");
+        using var response = await client.GetAsync(new Uri("/openapi/v1.json", UriKind.Relative));
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);

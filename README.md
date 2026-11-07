@@ -2,7 +2,7 @@
 
 API REST desarrollada con **ASP.NET Core y .NET 10**, organizada siguiendo los principios de **Clean Architecture**. Su objetivo es exponer dos endpoints que se comunicarán con un servicio externo, manteniendo separadas las responsabilidades de la API, la lógica de aplicación, el dominio y las integraciones.
 
-> **Estado del proyecto:** estructura inicial configurada. Los endpoints de negocio y la integración con el servicio externo están pendientes de implementación.
+> **Estado del proyecto:** `GET /analytics/streams` funciona en el happy path (200), con un App Access Token obtenido por client credentials. Pendientes: `GET /analytics/user`, la caché y renovación del token (401) y el formato de errores 400/500 del enunciado.
 
 ## Requisitos
 
@@ -28,13 +28,22 @@ Los siguientes comandos se ejecutan desde la **raíz del repositorio**.
    dotnet build
    ```
 
-3. Confiar en el certificado HTTPS de desarrollo (solo si aún no está configurado):
+3. Configurar las credenciales de Twitch con **user secrets** (nunca en `appsettings*.json`):
+
+   ```powershell
+   dotnet user-secrets set "Twitch:ClientId" "<client-id>" --project .\src\TwitchAPI.Api
+   dotnet user-secrets set "Twitch:ClientSecret" "<client-secret>" --project .\src\TwitchAPI.Api
+   ```
+
+   Fuera de Development, usa variables de entorno (`Twitch__ClientId` y `Twitch__ClientSecret`). Si falta alguna de las dos, la aplicación no arranca.
+
+4. Confiar en el certificado HTTPS de desarrollo (solo si aún no está configurado):
 
    ```powershell
    dotnet dev-certs https --trust
    ```
 
-4. Iniciar la API mediante el perfil HTTPS:
+5. Iniciar la API mediante el perfil HTTPS:
 
    ```powershell
    dotnet run --project .\src\TwitchAPI.Api --launch-profile https
@@ -46,7 +55,19 @@ La aplicación mostrará en la consola las direcciones en las que está escuchan
 https://localhost:<puerto-https>/openapi/v1.json
 ```
 
-Sustituye `<puerto-https>` por el indicado en la consola. **La especificación OpenAPI no implica que los dos endpoints de negocio estén implementados todavía.**
+Sustituye `<puerto-https>` por el indicado en la consola. Para consultar los Live Streams:
+
+```text
+GET https://localhost:<puerto-https>/analytics/streams
+```
+
+### Configuración opcional
+
+| Clave | Valor por defecto | Uso |
+| --- | --- | --- |
+| `Twitch:AuthBaseAddress` | `https://id.twitch.tv/` | Endpoint de tokens (`oauth2/token`). |
+| `Twitch:HelixBaseAddress` | `https://api.twitch.tv/helix/` | API Helix. |
+| `Twitch:Timeout` | `00:00:10` | Timeout de cada llamada a Twitch. |
 
 ## Pruebas y calidad de código
 
@@ -62,7 +83,7 @@ Verificar el formato y las reglas de estilo sin modificar archivos:
 dotnet format --verify-no-changes
 ```
 
-La solución incluye un proyecto de pruebas con **xUnit** y una prueba de integración que comprueba la disponibilidad del documento OpenAPI mediante `WebApplicationFactory`.
+Las pruebas son de integración por HTTP con **xUnit** y `WebApplicationFactory<Program>`. El factory de test (`TwitchApiFactory`) inyecta credenciales falsas, sustituye `TimeProvider` por `FakeTimeProvider` y cambia el `HttpMessageHandler` primario de los `HttpClient` por un **Twitch falso** (`FakeTwitch`) que responde a `/oauth2/token` y a `/helix/*` y registra las peticiones. Las pruebas no llaman a Twitch real ni dependen de user secrets.
 
 Las reglas compartidas de compilación y análisis están definidas en `Directory.Build.props`; las convenciones de formato y estilo están en `.editorconfig`.
 
@@ -122,12 +143,15 @@ Por ahora **no se incluyen**:
 - Servicios e interfaces vacíos creados únicamente para completar la estructura.
 - Configuración de autenticación propia, contenedores o despliegue sin un requisito que los justifique.
 
+## Dudas e hipótesis
+
+- **Live Streams sin paginación.** `/analytics/streams` hace una sola llamada a Helix `GET /helix/streams?first=100` (el máximo por página) y no sigue el cursor. El enunciado no pide paginación ni parámetros, y recorrer todas las páginas supondría miles de llamadas. Se devuelven en el orden de Twitch (de más a menos espectadores).
+
 ## Próximos pasos
 
-- Definir el contrato de los **dos endpoints**.
-- Incorporar la lógica de Application y un cliente HTTP para el servicio externo, mediante inyección de dependencias.
-- Gestionar configuración, credenciales, errores y tiempos de espera de la integración.
-- Añadir pruebas de las operaciones y de las respuestas del servicio externo sin depender de llamadas reales en los tests.
+- `GET /analytics/user` (200 y 404).
+- Caché, renovación e invalidación del App Access Token, con un único reintento cuando Twitch responde 401.
+- Validación del `id` (400) y cuerpo `{ "error": ... }` del enunciado para los fallos inesperados (500).
 - Preparar la automatización de compilación y pruebas en GitHub Actions.
 
 Estas tareas describen el trabajo previsto, **no funcionalidades ya disponibles**.
