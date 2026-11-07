@@ -6,6 +6,8 @@ namespace TwitchAPI.Tests.Api;
 
 public sealed class StreamsTests
 {
+    private static readonly Uri StreamsUri = new("/analytics/streams", UriKind.Relative);
+
     [Fact]
     public async Task GetStreamsWhenTwitchHasLiveStreamsReturnsTitleAndUserNameInTwitchOrder()
     {
@@ -25,7 +27,7 @@ public sealed class StreamsTests
         using var client = factory.CreateApiClient();
 
         // Act
-        using var response = await client.GetAsync(new Uri("/analytics/streams", UriKind.Relative));
+        using var response = await client.GetAsync(StreamsUri);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -48,7 +50,7 @@ public sealed class StreamsTests
         using var client = factory.CreateApiClient();
 
         // Act
-        using var response = await client.GetAsync(new Uri("/analytics/streams", UriKind.Relative));
+        using var response = await client.GetAsync(StreamsUri);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -66,7 +68,7 @@ public sealed class StreamsTests
         using var client = factory.CreateApiClient();
 
         // Act
-        using var response = await client.GetAsync(new Uri("/analytics/streams", UriKind.Relative));
+        using var response = await client.GetAsync(StreamsUri);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -76,14 +78,14 @@ public sealed class StreamsTests
     }
 
     [Fact]
-    public async Task GetStreamsWhenCalledReturnsOkUsingClientIdAndAppAccessToken()
+    public async Task GetStreamsWhenAppAccessTokenIsIssuedReturnsOkFromHelixCallWithClientIdAndBearerToken()
     {
         // Arrange
         using var factory = new TwitchApiFactory();
         using var client = factory.CreateApiClient();
 
         // Act
-        using var response = await client.GetAsync(new Uri("/analytics/streams", UriKind.Relative));
+        using var response = await client.GetAsync(StreamsUri);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -93,14 +95,14 @@ public sealed class StreamsTests
     }
 
     [Fact]
-    public async Task GetStreamsWhenCalledReturnsOkUsingClientCredentialsToken()
+    public async Task GetStreamsWhenClientCredentialsAreConfiguredReturnsOkAfterClientCredentialsGrant()
     {
         // Arrange
         using var factory = new TwitchApiFactory();
         using var client = factory.CreateApiClient();
 
         // Act
-        using var response = await client.GetAsync(new Uri("/analytics/streams", UriKind.Relative));
+        using var response = await client.GetAsync(StreamsUri);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);

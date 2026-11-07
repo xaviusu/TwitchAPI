@@ -16,6 +16,7 @@ public static class DependencyInjection
         services.AddOptions<TwitchOptions>()
             .Bind(configuration.GetSection(TwitchOptions.SectionName))
             .ValidateDataAnnotations()
+            .Validate(options => options.Timeout > TimeSpan.Zero, "Twitch:Timeout must be greater than zero.")
             .ValidateOnStart();
         services.TryAddSingleton(TimeProvider.System);
 
