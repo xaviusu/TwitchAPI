@@ -8,3 +8,4 @@
   one behavior per test. Every status code in the spec has at least one test.
 - Integration tests must not depend on user secrets: provide fake Twitch
   credentials in the test `WebApplicationFactory`.
+- Mappings between layers (Helix → Domain → Contract) use named arguments.

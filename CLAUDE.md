@@ -61,10 +61,11 @@ The README rules out these on purpose. Don't add them without a requirement: EF 
   that are not in `docs/enunciado.md`.
 - If the spec is ambiguous, ask before implementing. Once decided, record the
   assumption in the README section "Dudas e hipótesis".
-- For any non-trivial change, propose a plan first and wait for approval.
+- For any non-trivial change, propose a plan first and wait for approval,
+  unless the work comes from a `ready-for-agent` issue.
 - Write or update tests before the implementation.
 - Keep changes small and focused; one concern per commit.
-  - Never commit, push or change git history unless asked. Running `/implement` counts as asking to commit.
+  - Never commit, push or change git history unless asked. `/implement` counts as asking to commit, after a checkpoint: show the full review reports and wait for the user to choose fixes.
   - For .NET / ASP.NET Core APIs, analyzers or Twitch-unrelated framework behavior,
   check the `microsoft-learn` MCP before relying on memory.
 
@@ -78,6 +79,9 @@ A task is done only when all of these pass:
 3. `dotnet format --verify-no-changes` clean.
 4. Responses match `docs/enunciado.md` exactly (fields, casing, messages).
 5. README updated if behavior, setup or assumptions changed.
+
+Before delivery, run the spec-checker subagent against the whole docs/enunciado.md;
+/code-review only checks each ticket's diff.
 
 ## Agent skills
 

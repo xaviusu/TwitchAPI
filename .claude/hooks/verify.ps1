@@ -11,7 +11,7 @@ function Fail($step, $output) {
     exit 2
 }
 
-$out = dotnet build --nologo -v q 2>&1
+$out = dotnet build --nologo --no-incremental -warnaserror -v q 2>&1
 if ($LASTEXITCODE -ne 0) { Fail 'dotnet build' $out }
 
 $out = dotnet test --nologo --no-build -v q 2>&1
