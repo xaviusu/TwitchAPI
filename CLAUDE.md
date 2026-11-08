@@ -10,10 +10,8 @@ ASP.NET Core (.NET 10) REST API for a technical challenge ("Twitch Analytics"). 
 - `GET /analytics/streams` returns live streams as `[{ "title": ..., "user_name": ... }]`. Errors: 401, 500.
 
 Requirements from the spec that are easy to break:
-- **Response bodies must match the spec exactly**, including field names (snake_case such as `display_name`, `broadcaster_type`, `user_name`) and format. Error bodies are `{ "error": "<exact message from spec>" }`.
-- Twitch auth uses OAuth app tokens (client credentials). When Twitch returns 401, invalidate the cached token, request a new one and retry once. Return 401 only if the retry also fails or the credentials are rejected.
+- **The spec wins.** Response bodies match it exactly, including field names (snake_case such as `display_name`, `broadcaster_type`, `user_name`) and format. Error bodies are `{ "error": "<exact message from spec>" }`. Never add status codes, response fields or error messages that are not in `docs/enunciado.md`.
 - Client ID and secret come from .NET user secrets. Never write them to `appsettings*.json`.
-- When something has to be cut, the business priority is: 200 happy paths, then 401 token handling, then 404, then 400/500.
 - The README (Spanish) must keep documenting how to run the app, technical decisions and trade-offs, what was left out, and any assumptions. Update it when behavior changes.
 
 ## Commands
@@ -44,12 +42,7 @@ The README rules out these on purpose. Don't add them without a requirement: EF 
 
 ## Build rules
 
-`Directory.Build.props` turns on nullable, .NET analyzers (`AnalysisMode=Recommended`), `EnforceCodeStyleInBuild`, and XML doc generation (CS1591 suppressed). Code style violations from `.editorconfig` surface as build warnings. The key rules are:
-- file-scoped namespaces (warning)
-- braces required on all control flow (warning)
-- no unused usings (IDE0005, warning)
-- `System` usings sorted first
-- LF line endings, 4-space indent in C#, 2-space indent in XML/JSON
+Analyzers and code style live in `Directory.Build.props` and `.editorconfig`; violations are build warnings. The Stop hook (`.claude/hooks/verify.ps1`) and CI build with `-warnaserror`, run `dotnet format --verify-no-changes` and `scripts/check-final-newline.ps1`.
 
 ## Tests
 
@@ -57,8 +50,6 @@ The README rules out these on purpose. Don't add them without a requirement: EF 
 
 ## Working rules
 
-- The spec wins. Never add status codes, response fields or error messages
-  that are not in `docs/enunciado.md`.
 - If the spec is ambiguous, ask before implementing. Once decided, record the
   assumption in the README section "Dudas e hipótesis".
 - For any non-trivial change, propose a plan first and wait for approval,
@@ -77,8 +68,7 @@ A task is done only when all of these pass:
 1. `dotnet build` with no new warnings.
 2. `dotnet test` all green.
 3. `dotnet format --verify-no-changes` clean.
-4. Responses match `docs/enunciado.md` exactly (fields, casing, messages).
-5. README updated if behavior, setup or assumptions changed.
+4. README updated if behavior, setup or assumptions changed.
 
 Before delivery, run the spec-checker subagent against the whole docs/enunciado.md;
 /code-review only checks each ticket's diff.
@@ -87,7 +77,7 @@ Before delivery, run the spec-checker subagent against the whole docs/enunciado.
 
 ### Issue tracker
 
-Issues live in GitHub Issues (xaviusu/TwitchAPI), managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Issues live in GitHub Issues (xaviusu/TwitchAPI), managed with the `gh` CLI. Commands, the branch workflow and closing issues by hand: see `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

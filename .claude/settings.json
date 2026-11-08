@@ -8,7 +8,10 @@
       "Bash(dotnet restore *)",
       "Bash(git status *)",
       "Bash(git diff *)",
-      "Bash(git log *)"
+      "Bash(git log *)",
+      "Bash(gh issue view *)",
+      "Bash(gh issue list *)",
+      "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/verify.ps1)"
     ],
     "ask": [
       "Bash(git commit *)",

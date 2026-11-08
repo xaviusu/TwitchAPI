@@ -15,6 +15,14 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 
 Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.
 
+## Branch workflow
+
+All ticket work lands on `feat/ia-implementation`; there are no PRs to `main`. `Closes #N` only fires on the default branch, so:
+
+- A commit that completes a ticket ends its body with `Closes #N`.
+- A blocker counts as resolved once its `Closes #N` commit is on the branch, even while the issue is still open.
+- After the push, close the issue by hand: `gh issue close <n> --comment "..."`, linking the full commit URL and stating that the work is on `feat/ia-implementation`, not merged to `main`.
+
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage` reads this flag.)_
