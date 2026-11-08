@@ -16,16 +16,38 @@ internal sealed class HelixTwitchClient(
 
     public async Task<IReadOnlyList<LiveStream>> GetLiveStreamsAsync(CancellationToken cancellationToken)
     {
+        var page = await GetPageAsync<HelixStream>(LiveStreamsUri, cancellationToken);
+        return [.. page.Data.Select(stream => new LiveStream(stream.Title, stream.UserName))];
+    }
+
+    public async Task<TwitchUser?> FindUserByIdAsync(string twitchUserId, CancellationToken cancellationToken)
+    {
+        var usersUri = new Uri($"users?id={Uri.EscapeDataString(twitchUserId)}", UriKind.Relative);
+        var page = await GetPageAsync<HelixUser>(usersUri, cancellationToken);
+        return page.Data.Select(user => new TwitchUser(
+            Id: user.Id,
+            Login: user.Login,
+            DisplayName: user.DisplayName,
+            Type: user.Type,
+            BroadcasterType: user.BroadcasterType,
+            Description: user.Description,
+            ProfileImageUrl: user.ProfileImageUrl,
+            OfflineImageUrl: user.OfflineImageUrl,
+            ViewCount: user.ViewCount,
+            CreatedAt: user.CreatedAt)).FirstOrDefault();
+    }
+
+    private async Task<HelixPage<T>> GetPageAsync<T>(Uri relativeUri, CancellationToken cancellationToken)
+    {
         var accessToken = await tokenProvider.GetAccessTokenAsync(cancellationToken);
-        using var request = new HttpRequestMessage(HttpMethod.Get, LiveStreamsUri);
+        using var request = new HttpRequestMessage(HttpMethod.Get, relativeUri);
         request.Headers.Add("Client-Id", options.Value.ClientId);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
         using var response = await httpClient.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
-        var page = await response.Content.ReadFromJsonAsync<HelixPage<HelixStream>>(cancellationToken)
-            ?? throw new InvalidOperationException("Twitch returned an empty streams response.");
-        return [.. page.Data.Select(stream => new LiveStream(stream.Title, stream.UserName))];
+        return await response.Content.ReadFromJsonAsync<HelixPage<T>>(cancellationToken)
+            ?? throw new InvalidOperationException($"Twitch returned an empty response for {relativeUri}.");
     }
 
     private sealed record HelixPage<T>([property: JsonPropertyName("data")] IReadOnlyList<T> Data);
@@ -33,4 +55,16 @@ internal sealed class HelixTwitchClient(
     private sealed record HelixStream(
         [property: JsonPropertyName("title")] string Title,
         [property: JsonPropertyName("user_name")] string UserName);
+
+    private sealed record HelixUser(
+        [property: JsonPropertyName("id")] string Id,
+        [property: JsonPropertyName("login")] string Login,
+        [property: JsonPropertyName("display_name")] string DisplayName,
+        [property: JsonPropertyName("type")] string Type,
+        [property: JsonPropertyName("broadcaster_type")] string BroadcasterType,
+        [property: JsonPropertyName("description")] string Description,
+        [property: JsonPropertyName("profile_image_url")] string ProfileImageUrl,
+        [property: JsonPropertyName("offline_image_url")] string OfflineImageUrl,
+        [property: JsonPropertyName("view_count")] long ViewCount,
+        [property: JsonPropertyName("created_at")] string CreatedAt);
 }

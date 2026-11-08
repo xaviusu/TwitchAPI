@@ -8,6 +8,7 @@ public sealed class FakeTwitch
 {
     public const string TokenPath = "/oauth2/token";
     public const string StreamsPath = "/helix/streams";
+    public const string UsersPath = "/helix/users";
     public const string DefaultAccessToken = "fake-app-access-token";
 
     private readonly ConcurrentQueue<RecordedRequest> _requests = new();
@@ -15,6 +16,7 @@ public sealed class FakeTwitch
     {
         [TokenPath] = (HttpStatusCode.OK, $$"""{"access_token":"{{DefaultAccessToken}}","expires_in":5000000,"token_type":"bearer"}"""),
         [StreamsPath] = (HttpStatusCode.OK, """{"data":[],"pagination":{}}"""),
+        [UsersPath] = (HttpStatusCode.OK, """{"data":[]}"""),
     };
 
     public IReadOnlyList<RecordedRequest> RequestsTo(string path) =>

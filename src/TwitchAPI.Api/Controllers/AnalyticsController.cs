@@ -15,4 +15,30 @@ public sealed class AnalyticsController(ITwitchClient twitchClient) : Controller
         var liveStreams = await twitchClient.GetLiveStreamsAsync(cancellationToken);
         return Ok(liveStreams.Select(stream => new LiveStreamResponse(stream.Title, stream.UserName)).ToList());
     }
+
+    [HttpGet("user")]
+    [ProducesResponseType<TwitchUserResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ErrorResponse>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<TwitchUserResponse>> GetUser(
+        [FromQuery] string id,
+        CancellationToken cancellationToken)
+    {
+        var user = await twitchClient.FindUserByIdAsync(id, cancellationToken);
+        if (user is null)
+        {
+            return NotFound(new ErrorResponse("User not found."));
+        }
+
+        return Ok(new TwitchUserResponse(
+            Id: user.Id,
+            Login: user.Login,
+            DisplayName: user.DisplayName,
+            Type: user.Type,
+            BroadcasterType: user.BroadcasterType,
+            Description: user.Description,
+            ProfileImageUrl: user.ProfileImageUrl,
+            OfflineImageUrl: user.OfflineImageUrl,
+            ViewCount: user.ViewCount,
+            CreatedAt: user.CreatedAt));
+    }
 }

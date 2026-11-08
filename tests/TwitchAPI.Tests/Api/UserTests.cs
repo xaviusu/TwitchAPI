@@ -1,0 +1,85 @@
+using System.Net;
+using TwitchAPI.Tests.Support;
+
+namespace TwitchAPI.Tests.Api;
+
+public sealed class UserTests
+{
+    private static readonly Uri UserUri = new("/analytics/user?id=141981764", UriKind.Relative);
+
+    private const string ExistingUserJson = """
+        {
+          "data": [
+            {
+              "id": "141981764",
+              "login": "twitchdev",
+              "display_name": "TwitchDev",
+              "type": "",
+              "broadcaster_type": "partner",
+              "description": "Supporting third-party developers building Twitch integrations.",
+              "profile_image_url": "https://static-cdn.jtvnw.net/profile.png",
+              "offline_image_url": "",
+              "view_count": 5980557,
+              "email": "not-real@email.com",
+              "created_at": "2016-12-14T20:32:28Z"
+            }
+          ]
+        }
+        """;
+
+    [Fact]
+    public async Task GetUserWhenTwitchKnowsIdReturnsUserFieldsInSpecOrder()
+    {
+        // Arrange
+        using var factory = new TwitchApiFactory();
+        factory.Twitch.Respond(FakeTwitch.UsersPath, HttpStatusCode.OK, ExistingUserJson);
+        using var client = factory.CreateApiClient();
+
+        // Act
+        using var response = await client.GetAsync(UserUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(
+            """{"id":"141981764","login":"twitchdev","display_name":"TwitchDev","type":"","broadcaster_type":"partner","description":"Supporting third-party developers building Twitch integrations.","profile_image_url":"https://static-cdn.jtvnw.net/profile.png","offline_image_url":"","view_count":5980557,"created_at":"2016-12-14T20:32:28Z"}""",
+            await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task GetUserWhenTwitchKnowsIdReturnsOkFromSingleGetUsersRequestById()
+    {
+        // Arrange
+        using var factory = new TwitchApiFactory();
+        factory.Twitch.Respond(FakeTwitch.UsersPath, HttpStatusCode.OK, ExistingUserJson);
+        using var client = factory.CreateApiClient();
+
+        // Act
+        using var response = await client.GetAsync(UserUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var helixRequest = Assert.Single(factory.Twitch.RequestsTo(FakeTwitch.UsersPath));
+        Assert.Equal(HttpMethod.Get, helixRequest.Method);
+        Assert.Equal("https://api.twitch.tv/helix/users?id=141981764", helixRequest.Uri.ToString());
+        Assert.Equal(TwitchApiFactory.ClientId, helixRequest.Headers["Client-Id"]);
+        Assert.Equal($"Bearer {FakeTwitch.DefaultAccessToken}", helixRequest.Headers["Authorization"]);
+    }
+
+    [Fact]
+    public async Task GetUserWhenTwitchReturnsEmptyDataReturnsNotFoundError()
+    {
+        // Arrange
+        using var factory = new TwitchApiFactory();
+        factory.Twitch.Respond(FakeTwitch.UsersPath, HttpStatusCode.OK, """{"data":[]}""");
+        using var client = factory.CreateApiClient();
+
+        // Act
+        using var response = await client.GetAsync(UserUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("""{"error":"User not found."}""", await response.Content.ReadAsStringAsync());
+    }
+}

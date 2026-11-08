@@ -2,7 +2,7 @@
 
 API REST desarrollada con **ASP.NET Core y .NET 10**, organizada siguiendo los principios de **Clean Architecture**. Su objetivo es exponer dos endpoints que se comunicarán con un servicio externo, manteniendo separadas las responsabilidades de la API, la lógica de aplicación, el dominio y las integraciones.
 
-> **Estado del proyecto:** `GET /analytics/streams` funciona en el happy path (200), con un App Access Token obtenido por client credentials. Pendientes: `GET /analytics/user`, la caché y renovación del token (401) y el formato de errores 400/500 del enunciado.
+> **Estado del proyecto:** `GET /analytics/streams` (200) y `GET /analytics/user` (200 y 404) funcionan con un App Access Token obtenido por client credentials. Pendientes: la caché y renovación del token (401), la validación del `id` (400) y el formato de errores 500 del enunciado.
 
 ## Requisitos
 
@@ -55,10 +55,11 @@ La aplicación mostrará en la consola las direcciones en las que está escuchan
 https://localhost:<puerto-https>/openapi/v1.json
 ```
 
-Sustituye `<puerto-https>` por el indicado en la consola. Para consultar los Live Streams:
+Sustituye `<puerto-https>` por el indicado en la consola. Para consultar los Live Streams y un Twitch User por su Twitch User ID:
 
 ```text
 GET https://localhost:<puerto-https>/analytics/streams
+GET https://localhost:<puerto-https>/analytics/user?id=141981764
 ```
 
 ### Configuración opcional
@@ -146,10 +147,11 @@ Por ahora **no se incluyen**:
 ## Dudas e hipótesis
 
 - **Live Streams sin paginación.** `/analytics/streams` hace una sola llamada a Helix `GET /helix/streams?first=100` (el máximo por página) y no sigue el cursor. El enunciado no pide paginación ni parámetros, y recorrer todas las páginas supondría miles de llamadas. Se devuelven en el orden de Twitch (de más a menos espectadores).
+- **Twitch User inexistente → 404.** `/analytics/user` hace una sola llamada a Helix `GET /helix/users?id=<id>`. Si Twitch responde `200` con `data: []`, devolvemos 404 `{"error": "User not found."}`. Que un `id` inexistente produzca `data` vacío es comportamiento observado de Twitch, no documentado en la referencia de Get Users.
+- **Campos del Twitch User tal cual.** Se devuelven exactamente los diez campos del ejemplo del enunciado, en ese orden, con los valores que da Twitch sin transformar: `created_at` se copia como string, `view_count` es numérico (Twitch lo tiene deprecado y puede valer 0) y los strings vacíos llegan como `""`. Los campos que Twitch añade y el enunciado no define (por ejemplo `email`) no se exponen.
 
 ## Próximos pasos
 
-- `GET /analytics/user` (200 y 404).
 - Caché, renovación e invalidación del App Access Token, con un único reintento cuando Twitch responde 401.
 - Validación del `id` (400) y cuerpo `{ "error": ... }` del enunciado para los fallos inesperados (500).
 - Preparar la automatización de compilación y pruebas en GitHub Actions.
