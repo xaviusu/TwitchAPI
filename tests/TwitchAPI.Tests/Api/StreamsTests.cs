@@ -1,5 +1,4 @@
 using System.Net;
-using System.Text.Json.Nodes;
 using TwitchAPI.Tests.Support;
 
 namespace TwitchAPI.Tests.Api;
@@ -30,15 +29,12 @@ public sealed class StreamsTests
         using var response = await client.GetAsync(StreamsUri);
 
         // Assert
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var body = JsonNode.Parse(await response.Content.ReadAsStringAsync());
-        var expected = JsonNode.Parse("""
+        await ResponseAssert.AssertJsonResponse(response, HttpStatusCode.OK, """
             [
               { "title": "Title of Stream 1", "user_name": "User1" },
               { "title": "Title of Stream 2", "user_name": "User2" }
             ]
             """);
-        Assert.True(JsonNode.DeepEquals(expected, body), body?.ToJsonString());
     }
 
     [Fact]
@@ -53,8 +49,7 @@ public sealed class StreamsTests
         using var response = await client.GetAsync(StreamsUri);
 
         // Assert
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal("[]", await response.Content.ReadAsStringAsync());
+        await ResponseAssert.AssertJsonResponse(response, HttpStatusCode.OK, "[]");
     }
 
     [Fact]

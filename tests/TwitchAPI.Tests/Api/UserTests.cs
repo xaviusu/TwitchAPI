@@ -39,11 +39,20 @@ public sealed class UserTests
         using var response = await client.GetAsync(UserUri);
 
         // Assert
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
-        Assert.Equal(
-            """{"id":"141981764","login":"twitchdev","display_name":"TwitchDev","type":"","broadcaster_type":"partner","description":"Supporting third-party developers building Twitch integrations.","profile_image_url":"https://static-cdn.jtvnw.net/profile.png","offline_image_url":"","view_count":5980557,"created_at":"2016-12-14T20:32:28Z"}""",
-            await response.Content.ReadAsStringAsync());
+        await ResponseAssert.AssertJsonResponse(response, HttpStatusCode.OK, """
+            {
+              "id": "141981764",
+              "login": "twitchdev",
+              "display_name": "TwitchDev",
+              "type": "",
+              "broadcaster_type": "partner",
+              "description": "Supporting third-party developers building Twitch integrations.",
+              "profile_image_url": "https://static-cdn.jtvnw.net/profile.png",
+              "offline_image_url": "",
+              "view_count": 5980557,
+              "created_at": "2016-12-14T20:32:28Z"
+            }
+            """);
     }
 
     [Fact]
@@ -78,8 +87,6 @@ public sealed class UserTests
         using var response = await client.GetAsync(UserUri);
 
         // Assert
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
-        Assert.Equal("""{"error":"User not found."}""", await response.Content.ReadAsStringAsync());
+        await ResponseAssert.AssertJsonResponse(response, HttpStatusCode.NotFound, """{"error":"User not found."}""");
     }
 }
