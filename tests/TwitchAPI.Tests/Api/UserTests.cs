@@ -7,32 +7,12 @@ public sealed class UserTests
 {
     private static readonly Uri UserUri = new("/analytics/user?id=141981764", UriKind.Relative);
 
-    private const string ExistingUserJson = """
-        {
-          "data": [
-            {
-              "id": "141981764",
-              "login": "twitchdev",
-              "display_name": "TwitchDev",
-              "type": "",
-              "broadcaster_type": "partner",
-              "description": "Supporting third-party developers building Twitch integrations.",
-              "profile_image_url": "https://static-cdn.jtvnw.net/profile.png",
-              "offline_image_url": "",
-              "view_count": 5980557,
-              "email": "not-real@email.com",
-              "created_at": "2016-12-14T20:32:28Z"
-            }
-          ]
-        }
-        """;
-
     [Fact]
     public async Task GetUserWhenTwitchKnowsIdReturnsUserFieldsInSpecOrder()
     {
         // Arrange
         using var factory = new TwitchApiFactory();
-        factory.Twitch.Respond(FakeTwitch.UsersPath, HttpStatusCode.OK, ExistingUserJson);
+        factory.Twitch.Respond(FakeTwitch.UsersPath, HttpStatusCode.OK, FakeTwitch.ExistingUserJson);
         using var client = factory.CreateApiClient();
 
         // Act
@@ -60,7 +40,7 @@ public sealed class UserTests
     {
         // Arrange
         using var factory = new TwitchApiFactory();
-        factory.Twitch.Respond(FakeTwitch.UsersPath, HttpStatusCode.OK, ExistingUserJson);
+        factory.Twitch.Respond(FakeTwitch.UsersPath, HttpStatusCode.OK, FakeTwitch.ExistingUserJson);
         using var client = factory.CreateApiClient();
 
         // Act

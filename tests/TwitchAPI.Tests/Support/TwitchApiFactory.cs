@@ -4,7 +4,9 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging.Testing;
 using Microsoft.Extensions.Time.Testing;
+using TwitchAPI.Application.Twitch;
 
 namespace TwitchAPI.Tests.Support;
 
@@ -31,6 +33,10 @@ public sealed class TwitchApiFactory : WebApplicationFactory<Program>
 
     public FakeTimeProvider Time { get; } = new(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
 
+    public AccessTokenWaiters TokenWaiters { get; } = new();
+
+    public FakeLogCollector Logs => Services.GetFakeLogCollector();
+
     public HttpClient CreateApiClient() =>
         CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
 
@@ -39,10 +45,16 @@ public sealed class TwitchApiFactory : WebApplicationFactory<Program>
         builder.ConfigureAppConfiguration(configuration => configuration.AddInMemoryCollection(_settings));
         builder.ConfigureTestServices(services =>
         {
+            services.AddFakeLogging();
             services.RemoveAll<TimeProvider>();
             services.AddSingleton<TimeProvider>(Time);
             services.ConfigureHttpClientDefaults(httpClient =>
                 httpClient.ConfigurePrimaryHttpMessageHandler(Twitch.CreateHandler));
+
+            var tokenProvider = services.Single(service => service.ServiceType == typeof(IAppAccessTokenProvider));
+            services.Remove(tokenProvider);
+            services.AddSingleton(provider => TokenWaiters.Observe(
+                (IAppAccessTokenProvider)ActivatorUtilities.CreateInstance(provider, tokenProvider.ImplementationType!)));
         });
     }
 }

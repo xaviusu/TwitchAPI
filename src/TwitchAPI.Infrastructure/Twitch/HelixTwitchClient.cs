@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
@@ -39,15 +40,43 @@ internal sealed class HelixTwitchClient(
 
     private async Task<HelixPage<T>> GetPageAsync<T>(Uri relativeUri, CancellationToken cancellationToken)
     {
-        var accessToken = await tokenProvider.GetAccessTokenAsync(cancellationToken);
-        using var request = new HttpRequestMessage(HttpMethod.Get, relativeUri);
-        request.Headers.Add("Client-Id", options.Value.ClientId);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-
-        using var response = await httpClient.SendAsync(request, cancellationToken);
+        using var response = await SendWithOneRenewalAsync(relativeUri, cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<HelixPage<T>>(cancellationToken)
             ?? throw new InvalidOperationException($"Twitch returned an empty response for {relativeUri}.");
+    }
+
+    private async Task<HttpResponseMessage> SendWithOneRenewalAsync(Uri relativeUri, CancellationToken cancellationToken)
+    {
+        var accessToken = await tokenProvider.GetAccessTokenAsync(cancellationToken);
+        var response = await SendAsync(relativeUri, accessToken, cancellationToken);
+        if (response.StatusCode != HttpStatusCode.Unauthorized)
+        {
+            return response;
+        }
+
+        response.Dispose();
+        tokenProvider.Invalidate(accessToken);
+        var renewedAccessToken = await tokenProvider.GetAccessTokenAsync(cancellationToken);
+        var retryResponse = await SendAsync(relativeUri, renewedAccessToken, cancellationToken);
+        if (retryResponse.StatusCode != HttpStatusCode.Unauthorized)
+        {
+            return retryResponse;
+        }
+
+        retryResponse.Dispose();
+        throw new TwitchUnauthorizedException($"Twitch rejected a renewed App Access Token for {relativeUri}.");
+    }
+
+    private async Task<HttpResponseMessage> SendAsync(
+        Uri relativeUri,
+        string accessToken,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, relativeUri);
+        request.Headers.Add("Client-Id", options.Value.ClientId);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        return await httpClient.SendAsync(request, cancellationToken);
     }
 
     private sealed record HelixPage<T>([property: JsonPropertyName("data")] IReadOnlyList<T> Data);

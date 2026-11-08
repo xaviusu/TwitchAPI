@@ -2,7 +2,7 @@
 
 API REST desarrollada con **ASP.NET Core y .NET 10**, organizada siguiendo los principios de **Clean Architecture**. Su objetivo es exponer dos endpoints que se comunicarán con un servicio externo, manteniendo separadas las responsabilidades de la API, la lógica de aplicación, el dominio y las integraciones.
 
-> **Estado del proyecto:** `GET /analytics/streams` (200) y `GET /analytics/user` (200 y 404) funcionan con un App Access Token obtenido por client credentials. Pendientes: la caché y renovación del token (401), la validación del `id` (400) y el formato de errores 500 del enunciado.
+> **Estado del proyecto:** `GET /analytics/streams` (200 y 401) y `GET /analytics/user` (200, 401 y 404) funcionan con un App Access Token obtenido por client credentials, cacheado en memoria y renovado cuando caduca o cuando Twitch lo rechaza. Pendientes: la validación del `id` (400) y el formato de errores 500 del enunciado.
 
 ## Requisitos
 
@@ -132,6 +132,7 @@ Los controladores no deben utilizar directamente clases concretas de Infrastruct
 | **.NET 10 y ASP.NET Core** | Plataforma principal de la API, con soporte para controladores, inyección de dependencias y OpenAPI. |
 | **Cuatro proyectos de producción separados** | Facilitan identificar responsabilidades y probar componentes de forma aislada. A cambio, introducen más proyectos y referencias que una API monolítica pequeña. |
 | **Controladores en lugar de Minimal APIs** | Hacen explícita la organización de los endpoints; para solo dos rutas, Minimal APIs también sería una alternativa válida. |
+| **App Access Token cacheado en memoria** | Un singleton guarda el token y lo reutiliza hasta un minuto antes de `expires_in`, con el tiempo de `TimeProvider` (sustituible en tests). La renovación va protegida por un `SemaphoreSlim`, así que con muchas peticiones simultáneas solo una pide token nuevo. A cambio, cada instancia de la API tiene su propio token y se pierde al reiniciar; para una sola instancia no compensa una caché distribuida. |
 | **Sin base de datos** | Los requisitos actuales solo contemplan comunicación con un servicio externo. Se evita añadir almacenamiento y persistencia innecesarios. |
 | **xUnit y pruebas de integración** | Permiten verificar el comportamiento HTTP sin ejecutar manualmente un servidor. Las pruebas de los futuros servicios y clientes externos se añadirán al implementarlos. |
 | **Análisis estático y formato compartidos** | Mejoran la consistencia entre los proyectos; requieren mantener las reglas acordadas y corregir las advertencias relevantes. |
@@ -151,10 +152,10 @@ Por ahora **no se incluyen**:
 - **Live Streams sin paginación.** `/analytics/streams` hace una sola llamada a Helix `GET /helix/streams?first=100` (el máximo por página) y no sigue el cursor. El enunciado no pide paginación ni parámetros, y recorrer todas las páginas supondría miles de llamadas. Se devuelven en el orden de Twitch (de más a menos espectadores).
 - **Twitch User inexistente → 404.** `/analytics/user` hace una sola llamada a Helix `GET /helix/users?id=<id>`. Si Twitch responde `200` con `data: []`, devolvemos 404 `{"error": "User not found."}`. Que un `id` inexistente produzca `data` vacío es comportamiento observado de Twitch, no documentado en la referencia de Get Users.
 - **Campos del Twitch User tal cual.** Se devuelven exactamente los diez campos del ejemplo del enunciado, en ese orden, con los valores que da Twitch sin transformar: `created_at` se copia como string, `view_count` es numérico (Twitch lo tiene deprecado y puede valer 0) y los strings vacíos llegan como `""`. Los campos que Twitch añade y el enunciado no define (por ejemplo `email`) no se exponen.
+- **Cuándo se devuelve 401.** El enunciado pide devolver 401 si el token es inválido o ha caducado, pero también regenerarlo si es posible. Interpretamos que el cliente solo debe ver el 401 cuando la API no puede recuperarse sola: si Helix responde 401, se invalida el App Access Token, se pide uno nuevo y se reintenta **una sola vez**; solo si ese reintento vuelve a dar 401, o si `id.twitch.tv` rechaza las credenciales (400, 401 o 403), se devuelve 401 `{"error": "Unauthorized. Twitch access token is invalid or has expired."}`. Cualquier otro fallo del endpoint de tokens no es un problema de autenticación (ver [ADR-0001](docs/adr/0001-mapeo-de-errores-de-twitch-a-401-y-500.md)).
 
 ## Próximos pasos
 
-- Caché, renovación e invalidación del App Access Token, con un único reintento cuando Twitch responde 401.
 - Validación del `id` (400) y cuerpo `{ "error": ... }` del enunciado para los fallos inesperados (500).
 
 Estas tareas describen el trabajo previsto, **no funcionalidades ya disponibles**.

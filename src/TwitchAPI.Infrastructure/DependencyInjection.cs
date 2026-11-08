@@ -20,12 +20,13 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.TryAddSingleton(TimeProvider.System);
 
-        services.AddHttpClient<IAppAccessTokenProvider, AppAccessTokenProvider>((provider, httpClient) =>
+        services.AddHttpClient(AppAccessTokenProvider.HttpClientName, (provider, httpClient) =>
         {
             var options = provider.GetRequiredService<IOptions<TwitchOptions>>().Value;
             httpClient.BaseAddress = options.AuthBaseAddress;
             httpClient.Timeout = options.Timeout;
         });
+        services.AddSingleton<IAppAccessTokenProvider, AppAccessTokenProvider>();
         services.AddHttpClient<ITwitchClient, HelixTwitchClient>((provider, httpClient) =>
         {
             var options = provider.GetRequiredService<IOptions<TwitchOptions>>().Value;
