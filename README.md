@@ -1,14 +1,15 @@
 # TwitchAPI
 
-API REST desarrollada con **ASP.NET Core y .NET 10**, organizada siguiendo los principios de **Clean Architecture**. Su objetivo es exponer dos endpoints que se comunicarán con un servicio externo, manteniendo separadas las responsabilidades de la API, la lógica de aplicación, el dominio y las integraciones.
+API REST desarrollada con **ASP.NET Core y .NET 10**, organizada siguiendo los principios de **Clean Architecture**. Expone endpoints de analítica que consultan la API Helix de Twitch, manteniendo separadas las responsabilidades de la API, la lógica de aplicación, el dominio y las integraciones.
 
-> **Estado del proyecto:** `GET /analytics/streams` (200, 401 y 500) y `GET /analytics/user` (200, 400, 401, 404 y 500) funcionan con un App Access Token obtenido por client credentials, cacheado en memoria y renovado cuando caduca o cuando Twitch lo rechaza.
+> **Estado del proyecto:** los dos endpoints (`GET /analytics/user` y `GET /analytics/streams`) y la integración con Twitch (token de aplicación OAuth con caché y renovación) están implementados.
 
 ## Requisitos
 
 - **.NET 10 SDK**. El archivo `global.json` define la versión de referencia y la política de actualización admitida.
 - Un entorno compatible con .NET (por ejemplo, Visual Studio o la CLI de .NET).
 - Para ejecutar el perfil HTTPS en local, un certificado de desarrollo de ASP.NET Core confiable.
+- Una aplicación registrada en la [consola de desarrolladores de Twitch](https://dev.twitch.tv/console/apps) (Client ID y Client Secret).
 
 No se necesita instalar ni configurar una base de datos.
 
@@ -28,14 +29,14 @@ Los siguientes comandos se ejecutan desde la **raíz del repositorio**.
    dotnet build
    ```
 
-3. Configurar las credenciales de Twitch con **user secrets** (nunca en `appsettings*.json`):
+3. Configurar las credenciales de Twitch con *user secrets* (nunca en `appsettings.json`):
 
    ```powershell
-   dotnet user-secrets set "Twitch:ClientId" "<client-id>" --project .\src\TwitchAPI.Api
-   dotnet user-secrets set "Twitch:ClientSecret" "<client-secret>" --project .\src\TwitchAPI.Api
+   dotnet user-secrets set "Twitch:ClientId" "<tu-client-id>" --project .\src\TwitchAPI.Api
+   dotnet user-secrets set "Twitch:ClientSecret" "<tu-client-secret>" --project .\src\TwitchAPI.Api
    ```
 
-   Fuera de Development, usa variables de entorno (`Twitch__ClientId` y `Twitch__ClientSecret`). Si falta alguna de las dos, la aplicación no arranca.
+   La aplicación no arranca si faltan. En otros entornos se pueden definir con las variables `Twitch__ClientId` y `Twitch__ClientSecret`.
 
 4. Confiar en el certificado HTTPS de desarrollo (solo si aún no está configurado):
 
@@ -55,20 +56,46 @@ La aplicación mostrará en la consola las direcciones en las que está escuchan
 https://localhost:<puerto-https>/openapi/v1.json
 ```
 
-Sustituye `<puerto-https>` por el indicado en la consola. Para consultar los Live Streams y un Twitch User por su Twitch User ID:
+Sustituye `<puerto-https>` por el indicado en la consola.
 
-```text
-GET https://localhost:<puerto-https>/analytics/streams
-GET https://localhost:<puerto-https>/analytics/user?id=141981764
+## Endpoints
+
+### `GET /analytics/user?id={id}`
+
+Devuelve el usuario de Twitch con ese id numérico.
+
+| Código | Cuándo |
+| --- | --- |
+| `200` | Usuario encontrado. |
+| `400` | `id` ausente o no numérico. |
+| `401` | Twitch rechaza el token incluso después de regenerarlo, o rechaza las credenciales de la aplicación. |
+| `404` | Twitch no tiene ningún usuario con ese id. |
+| `500` | Cualquier otro error: fallo o caída de Twitch, timeout (15 s), *rate limiting*, respuesta inválida o error inesperado. |
+
+### `GET /analytics/streams`
+
+Devuelve los streams que están en directo ahora mismo, con el título y el nombre del streamer:
+
+```json
+[
+  { "title": "Title of Stream 1", "user_name": "User1" },
+  { "title": "Title of Stream 2", "user_name": "User2" }
+]
 ```
 
-### Configuración opcional
+| Código | Cuándo |
+| --- | --- |
+| `200` | Lista de streams en directo (puede ser `[]`). |
+| `401` | Twitch rechaza el token incluso después de regenerarlo, o rechaza las credenciales de la aplicación. |
+| `500` | Cualquier otro error: fallo o caída de Twitch, timeout (15 s), *rate limiting*, respuesta inválida o error inesperado. |
 
-| Clave | Valor por defecto | Uso |
-| --- | --- | --- |
-| `Twitch:AuthBaseAddress` | `https://id.twitch.tv/` | Endpoint de tokens (`oauth2/token`). |
-| `Twitch:HelixBaseAddress` | `https://api.twitch.tv/helix/` | API Helix. |
-| `Twitch:Timeout` | `00:00:10` | Timeout de cada llamada a Twitch. Si salta, la API responde 500. |
+### Formato de error
+
+Todos los errores, incluidas las rutas inexistentes, usan el mismo formato:
+
+```json
+{ "error": "User not found." }
+```
 
 ## Pruebas y calidad de código
 
@@ -84,18 +111,30 @@ Verificar el formato y las reglas de estilo sin modificar archivos:
 dotnet format --verify-no-changes
 ```
 
-Las pruebas son de integración por HTTP con **xUnit** y `WebApplicationFactory<Program>`. El factory de test (`TwitchApiFactory`) inyecta credenciales falsas, sustituye `TimeProvider` por `FakeTimeProvider` y cambia el `HttpMessageHandler` primario de los `HttpClient` por un **Twitch falso** (`FakeTwitch`) que responde a `/oauth2/token` y a `/helix/*` y registra las peticiones. Las pruebas no llaman a Twitch real ni dependen de user secrets.
-
-La única excepción a esa seam única es el test de concurrencia del App Access Token: el factory envuelve el proveedor real del token (`AccessTokenWaiters`) para contar las peticiones que ya están esperando la renovación. Desde el Twitch falso solo se ve la petición que llega a `/oauth2/token`; las demás esperan dentro de la API. Sin ese contador, saber cuándo soltar la respuesta del token dependería de una espera real y el test no sería determinista. El envoltorio no cambia el comportamiento: delega siempre en el proveedor real.
+La solución incluye un proyecto de pruebas con **xUnit**: pruebas unitarias del validador, del contrato JSON, del proveedor de tokens y del cliente de Twitch (con `HttpMessageHandler` simulados), y pruebas de integración de los endpoints con `WebApplicationFactory`. Las pruebas no llaman a Twitch ni necesitan credenciales reales: `TestWebApplicationFactory` inyecta credenciales ficticias.
 
 Las reglas compartidas de compilación y análisis están definidas en `Directory.Build.props`; las convenciones de formato y estilo están en `.editorconfig`.
-
-GitHub Actions (`.github/workflows/ci.yml`) ejecuta en cada pull request y en cada push a cualquier rama la compilación con warnings como errores (`-warnaserror`), las pruebas, `dotnet format --verify-no-changes` y `scripts/check-final-newline.ps1`, que comprueba que todos los ficheros de texto terminan en salto de línea (`dotnet format` solo revisa C#). El hook `Stop` de Claude Code ejecuta los mismos pasos en local.
 
 ## Estructura y arquitectura
 
 ```text
 TwitchAPI/
+├── .claude/
+│   ├── agents/
+│   │   └── spec-checker.md
+│   ├── hooks/
+│   │   ├── format.ps1
+│   │   └── verify.ps1
+│   └── settings.json
+├── .github/
+│   └── workflows/
+│       └── ci.yml
+├── docs/
+│   ├── adr/
+│   ├── agents/
+│   └── enunciado.md
+├── scripts/
+│   └── check-final-newline.ps1
 ├── src/
 │   ├── TwitchAPI.Api/
 │   ├── TwitchAPI.Application/
@@ -104,10 +143,16 @@ TwitchAPI/
 ├── tests/
 │   └── TwitchAPI.Tests/
 ├── .editorconfig
+├── .gitattributes
 ├── .gitignore
+├── .mcp.json
+├── CLAUDE.md
+├── CODING_STANDARDS.md
 ├── Directory.Build.props
+├── GLOSSARY.md
 ├── global.json
-└── README.md
+├── README.md
+└── TwitchAPI.slnx
 ```
 
 | Proyecto | Responsabilidad |
@@ -134,13 +179,22 @@ Los controladores no deben utilizar directamente clases concretas de Infrastruct
 | **.NET 10 y ASP.NET Core** | Plataforma principal de la API, con soporte para controladores, inyección de dependencias y OpenAPI. |
 | **Cuatro proyectos de producción separados** | Facilitan identificar responsabilidades y probar componentes de forma aislada. A cambio, introducen más proyectos y referencias que una API monolítica pequeña. |
 | **Controladores en lugar de Minimal APIs** | Hacen explícita la organización de los endpoints; para solo dos rutas, Minimal APIs también sería una alternativa válida. |
-| **App Access Token cacheado en memoria** | Un singleton guarda el token y lo reutiliza hasta un minuto antes de `expires_in`, con el tiempo de `TimeProvider` (sustituible en tests). La renovación va protegida por un `SemaphoreSlim`, así que con muchas peticiones simultáneas solo una pide token nuevo. A cambio, cada instancia de la API tiene su propio token y se pierde al reiniciar; para una sola instancia no compensa una caché distribuida. |
-| **Errores con el cuerpo del enunciado, sin `ProblemDetails`** | El enunciado fija los cuerpos de error como `{ "error": "<mensaje>" }`, así que no se usan `AddProblemDetails` ni `UseStatusCodePages`. Los cuatro mensajes literales viven en `ErrorResponse`. La validación automática de `[ApiController]` devuelve el 400 del enunciado para cualquier entrada inválida; como `/analytics/user` es el único endpoint con parámetros, ese 400 siempre se refiere al `id` (un endpoint futuro con otros parámetros necesitaría su propio mensaje). Además, el formato del `id` lo comprueba el tipo de dominio `TwitchUserId` mediante un model binder propio, de modo que el controlador y el cliente de Twitch nunca reciben un `id` mal formado. Las rutas inexistentes (404) y los métodos no admitidos (405) mantienen la respuesta vacía por defecto del framework, porque el enunciado no las define. |
-| **Errores de Twitch solo como 401 o 500** | Ver [ADR-0001](docs/adr/0001-mapeo-de-errores-de-twitch-a-401-y-500.md). Solo se devuelve 401 cuando Twitch rechaza las credenciales o el token renovado. Cualquier otro fallo devuelve 500 `{"error": "Internal server error."}`, nunca `problem+json` ni trazas: un 400, 429 o 5xx de Helix, un 5xx o error de red de `/oauth2/token`, el timeout, un JSON inválido o sin `data`, `title`, `user_name` u otro campo esperado, y cualquier excepción no controlada de la API. Un `IExceptionHandler` final escribe ese cuerpo y registra la causa real con nivel `Error` mediante `[LoggerMessage]`. El JSON de Twitch se deserializa con `RespectRequiredConstructorParameters` y `RespectNullableAnnotations`, de modo que un campo ausente o `null` da 500 en lugar de un 200 con `null`. A cambio, el cliente no distingue entre "Twitch caído" y "Twitch limita peticiones"; el detalle queda en los logs. |
 | **Sin base de datos** | Los requisitos actuales solo contemplan comunicación con un servicio externo. Se evita añadir almacenamiento y persistencia innecesarios. |
-| **xUnit y pruebas de integración** | Permiten verificar el comportamiento HTTP sin ejecutar manualmente un servidor. Las pruebas de los futuros servicios y clientes externos se añadirán al implementarlos. |
+| **xUnit y pruebas de integración** | Permiten verificar el comportamiento HTTP sin ejecutar manualmente un servidor ni depender de Twitch. |
+| **Solo 401 y 500 para los errores de Twitch** | El enunciado fija esos códigos y mensajes. Internamente cada fallo se clasifica (credenciales, timeout, *rate limiting*, caída) y queda en los logs; en un servicio real devolvería 502/503/504 para distinguir los fallos del servicio externo de los errores propios. |
+| **Un único cliente de Twitch para los dos endpoints** | `TwitchApiClient` implementa `ITwitchUserClient` e `ITwitchStreamClient` y centraliza el token, el reintento ante un 401 y la traducción de errores, para no duplicar esa lógica. Si la integración creciera, se separaría en un cliente por recurso sobre un *handler* común. |
+| **Renovación anticipada del token** | El token se renueva un 10 % antes de su caducidad (máximo 60 s) para no enviar tokens caducados; si Twitch responde 401, se invalida y se reintenta una vez. |
 | **Análisis estático y formato compartidos** | Mejoran la consistencia entre los proyectos; requieren mantener las reglas acordadas y corregir las advertencias relevantes. |
 | **SDK fijado mediante `global.json`** | Favorece la reproducibilidad del entorno y evita seleccionar accidentalmente un SDK preliminar más reciente. |
+
+## Dudas e hipótesis
+
+- **Formato válido del id:** los ids de usuario de Twitch son cadenas numéricas, así que se acepta cualquier id formado solo por dígitos ASCII. Un id con formato válido que no existe devuelve `404`.
+- **Cuándo devolver `401`:** el enunciado pide devolver 401 si el token no es válido y, si es posible, regenerarlo. Se interpreta que primero se intenta regenerar: ante un 401 de Twitch se invalida el token, se pide uno nuevo y se repite la petición una vez. Solo se devuelve `401` si Twitch rechaza también el token nuevo, o si rechaza las credenciales de la aplicación al pedirlo.
+- **Qué streams devolver:** Twitch tiene miles de streams en directo y su API los pagina. Se devuelve la primera página, con los **20** streams con más espectadores (el orden que usa Twitch), pidiéndolos explícitamente con `first=20`. Paginar, filtrar o cambiar el tamaño de página no se pide en el enunciado y quedaría como mejora (por ejemplo, con parámetros `first` y `after`).
+- **Campos de la respuesta:** se devuelven exactamente los campos de los ejemplos del enunciado; el resto de datos que devuelve Twitch se descarta. `view_count` se mantiene aunque Twitch lo devuelve siempre a 0 desde que dejó de usarlo.
+- **Errores no listados en el enunciado:** caídas, timeouts o *rate limiting* de Twitch se tratan como `500`, que es el error genérico que define el enunciado.
+- **Credenciales:** aunque el enunciado proporciona un Client ID y un Client Secret, no se guardan en el repositorio; se configuran con *user secrets* o variables de entorno.
 
 ## Elementos excluidos deliberadamente
 
@@ -150,12 +204,9 @@ Por ahora **no se incluyen**:
 - CQRS, MediatR o AutoMapper, porque no aportan una ventaja clara al alcance actual.
 - Servicios e interfaces vacíos creados únicamente para completar la estructura.
 - Configuración de autenticación propia, contenedores o despliegue sin un requisito que los justifique.
-- Resiliencia hacia Twitch (Polly / `Microsoft.Extensions.Http.Resilience`) y reintentos automáticos. Solo hay un timeout configurable y el único reintento tras un 401 (ver [ADR-0002](docs/adr/0002-sin-resiliencia-ni-reintentos-automaticos.md)). Un fallo transitorio de Twitch llega al cliente como 500.
 
-## Dudas e hipótesis
+## Próximos pasos
 
-- **Live Streams sin paginación.** `/analytics/streams` hace una sola llamada a Helix `GET /helix/streams?first=100` (el máximo por página) y no sigue el cursor. El enunciado no pide paginación ni parámetros, y recorrer todas las páginas supondría miles de llamadas. Se devuelven en el orden de Twitch (de más a menos espectadores).
-- **Twitch User inexistente → 404.** `/analytics/user` hace una sola llamada a Helix `GET /helix/users?id=<id>`. Si Twitch responde `200` con `data: []`, devolvemos 404 `{"error": "User not found."}`. Que un `id` inexistente produzca `data` vacío es comportamiento observado de Twitch, no documentado en la referencia de Get Users.
-- **Campos del Twitch User tal cual.** Se devuelven exactamente los diez campos del ejemplo del enunciado, en ese orden, con los valores que da Twitch sin transformar: `created_at` se copia como string, `view_count` es numérico (Twitch lo tiene deprecado y puede valer 0) y los strings vacíos llegan como `""`. Los campos que Twitch añade y el enunciado no define (por ejemplo `email`) no se exponen.
-- **Formato aceptado del `id`.** El enunciado pide validar que el `id` esté presente y tenga "un formato válido", sin definirlo. Los Twitch User ID son strings numéricos, así que aceptamos un `id` si y solo si aparece **una única vez** en la query y cumple `^[0-9]+$` con una longitud de 1 a 20 caracteres (20 dígitos caben de sobra en cualquier ID actual de Twitch y acotan la entrada). Se rechazan con 400 `{"error": "Invalid or missing 'id' parameter."}`, sin llamar a Twitch: el `id` ausente o vacío, letras, signos (`-5`, `+5`), espacios alrededor del número, dígitos no ASCII, más de 20 dígitos y el `id` repetido (`id=1&id=2`, incluso con el mismo valor). Un `id` bien formado que no existe en Twitch sigue dando 404.
-- **Cuándo se devuelve 401.** El enunciado pide devolver 401 si el token es inválido o ha caducado, pero también regenerarlo si es posible. Interpretamos que el cliente solo debe ver el 401 cuando la API no puede recuperarse sola: si Helix responde 401, se invalida el App Access Token, se pide uno nuevo y se reintenta **una sola vez**; solo si ese reintento vuelve a dar 401, o si `id.twitch.tv` rechaza las credenciales (400, 401 o 403), se devuelve 401 `{"error": "Unauthorized. Twitch access token is invalid or has expired."}`. Cualquier otro fallo del endpoint de tokens no es un problema de autenticación (ver [ADR-0001](docs/adr/0001-mapeo-de-errores-de-twitch-a-401-y-500.md)).
+- Preparar la automatización de compilación y pruebas en GitHub Actions.
+
+Estas tareas describen el trabajo previsto, **no funcionalidades ya disponibles**.

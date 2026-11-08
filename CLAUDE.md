@@ -46,7 +46,7 @@ Analyzers and code style live in `Directory.Build.props` and `.editorconfig`; vi
 
 ## Tests
 
-`tests/TwitchAPI.Tests` uses xUnit and `Microsoft.AspNetCore.Mvc.Testing`. Integration tests use `WebApplicationFactory<Program>` with base address `https://localhost`, because HTTPS redirection is enabled. Tests must not call the real Twitch API. Stub the Application-layer contracts or the `HttpMessageHandler` instead.
+`tests/TwitchAPI.Tests` uses xUnit and `Microsoft.AspNetCore.Mvc.Testing`. Integration tests use `WebApplicationFactory<Program>` with base address `https://localhost`, because HTTPS redirection is enabled. Tests must not call the real Twitch API. There is a single seam: the API over HTTP, with the fake Twitch (`FakeTwitch`) as the primary `HttpMessageHandler` and `TimeProvider` replaced by `FakeTimeProvider`; Application contracts are not stubbed. The only documented exception is the token provider wrapper in the concurrency test (see README, "Pruebas y calidad de código").
 
 ## Working rules
 
