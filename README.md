@@ -88,6 +88,8 @@ Las pruebas son de integración por HTTP con **xUnit** y `WebApplicationFactory<
 
 Las reglas compartidas de compilación y análisis están definidas en `Directory.Build.props`; las convenciones de formato y estilo están en `.editorconfig`.
 
+GitHub Actions (`.github/workflows/ci.yml`) ejecuta en cada pull request y en cada push a `main` la compilación con warnings como errores (`-warnaserror`), las pruebas y `dotnet format --verify-no-changes`.
+
 ## Estructura y arquitectura
 
 ```text
@@ -154,6 +156,5 @@ Por ahora **no se incluyen**:
 
 - Caché, renovación e invalidación del App Access Token, con un único reintento cuando Twitch responde 401.
 - Validación del `id` (400) y cuerpo `{ "error": ... }` del enunciado para los fallos inesperados (500).
-- Preparar la automatización de compilación y pruebas en GitHub Actions.
 
 Estas tareas describen el trabajo previsto, **no funcionalidades ya disponibles**.
