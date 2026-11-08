@@ -90,7 +90,7 @@ La única excepción a esa seam única es el test de concurrencia del App Access
 
 Las reglas compartidas de compilación y análisis están definidas en `Directory.Build.props`; las convenciones de formato y estilo están en `.editorconfig`.
 
-GitHub Actions (`.github/workflows/ci.yml`) ejecuta en cada pull request y en cada push a cualquier rama la compilación con warnings como errores (`-warnaserror`), las pruebas y `dotnet format --verify-no-changes`.
+GitHub Actions (`.github/workflows/ci.yml`) ejecuta en cada pull request y en cada push a cualquier rama la compilación con warnings como errores (`-warnaserror`), las pruebas, `dotnet format --verify-no-changes` y `scripts/check-final-newline.ps1`, que comprueba que todos los ficheros de texto terminan en salto de línea (`dotnet format` solo revisa C#). El hook `Stop` de Claude Code ejecuta los mismos pasos en local.
 
 ## Estructura y arquitectura
 
