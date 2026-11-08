@@ -96,10 +96,16 @@ public sealed class AppAccessTokenTests
     }
 
     [Theory]
-    [InlineData(HttpStatusCode.BadRequest)]
-    [InlineData(HttpStatusCode.Unauthorized)]
-    [InlineData(HttpStatusCode.Forbidden)]
-    public async Task GetStreamsWhenTwitchRejectsClientCredentialsReturnsUnauthorizedError(HttpStatusCode tokenStatus)
+    [InlineData("/analytics/streams", FakeTwitch.StreamsPath, HttpStatusCode.BadRequest)]
+    [InlineData("/analytics/streams", FakeTwitch.StreamsPath, HttpStatusCode.Unauthorized)]
+    [InlineData("/analytics/streams", FakeTwitch.StreamsPath, HttpStatusCode.Forbidden)]
+    [InlineData("/analytics/user?id=141981764", FakeTwitch.UsersPath, HttpStatusCode.BadRequest)]
+    [InlineData("/analytics/user?id=141981764", FakeTwitch.UsersPath, HttpStatusCode.Unauthorized)]
+    [InlineData("/analytics/user?id=141981764", FakeTwitch.UsersPath, HttpStatusCode.Forbidden)]
+    public async Task GetWhenTwitchRejectsClientCredentialsReturnsUnauthorizedError(
+        string endpoint,
+        string helixPath,
+        HttpStatusCode tokenStatus)
     {
         // Arrange
         using var factory = new TwitchApiFactory();
@@ -107,11 +113,11 @@ public sealed class AppAccessTokenTests
         using var client = factory.CreateApiClient();
 
         // Act
-        using var response = await client.GetAsync(StreamsUri);
+        using var response = await client.GetAsync(new Uri(endpoint, UriKind.Relative));
 
         // Assert
         await ResponseAssert.AssertJsonResponse(response, HttpStatusCode.Unauthorized, UnauthorizedErrorJson);
-        Assert.Empty(factory.Twitch.RequestsTo(FakeTwitch.StreamsPath));
+        Assert.Empty(factory.Twitch.RequestsTo(helixPath));
     }
 
     [Fact]
