@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using TwitchAPI.Api.Contracts;
 using TwitchAPI.Application.Twitch;
+using TwitchAPI.Domain;
 
 namespace TwitchAPI.Api.Controllers;
 
@@ -18,15 +19,16 @@ public sealed class AnalyticsController(ITwitchClient twitchClient) : Controller
 
     [HttpGet("user")]
     [ProducesResponseType<TwitchUserResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ErrorResponse>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ErrorResponse>(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<TwitchUserResponse>> GetUser(
-        [FromQuery] string id,
+        [FromQuery] TwitchUserId id,
         CancellationToken cancellationToken)
     {
         var user = await twitchClient.FindUserByIdAsync(id, cancellationToken);
         if (user is null)
         {
-            return NotFound(new ErrorResponse("User not found."));
+            return NotFound(ErrorResponse.UserNotFound);
         }
 
         return Ok(new TwitchUserResponse(

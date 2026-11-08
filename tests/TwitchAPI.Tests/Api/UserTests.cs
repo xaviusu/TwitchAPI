@@ -69,4 +69,52 @@ public sealed class UserTests
         // Assert
         await ResponseAssert.AssertJsonResponse(response, HttpStatusCode.NotFound, """{"error":"User not found."}""");
     }
+
+    [Fact]
+    public async Task GetUserWhenIdHasTwentyDigitsForwardsIdToTwitch()
+    {
+        // Arrange
+        using var factory = new TwitchApiFactory();
+        using var client = factory.CreateApiClient();
+
+        // Act
+        using var response = await client.GetAsync(new Uri("/analytics/user?id=12345678901234567890", UriKind.Relative));
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var helixRequest = Assert.Single(factory.Twitch.RequestsTo(FakeTwitch.UsersPath));
+        Assert.Equal("https://api.twitch.tv/helix/users?id=12345678901234567890", helixRequest.Uri.ToString());
+    }
+
+    [Theory]
+    [InlineData("/analytics/user")]
+    [InlineData("/analytics/user?id=")]
+    [InlineData("/analytics/user?id=abc")]
+    [InlineData("/analytics/user?id=12a")]
+    [InlineData("/analytics/user?id=-5")]
+    [InlineData("/analytics/user?id=%2B5")]
+    [InlineData("/analytics/user?id=+5")]
+    [InlineData("/analytics/user?id=%2012")]
+    [InlineData("/analytics/user?id=12%20")]
+    [InlineData("/analytics/user?id=%EF%BC%91%EF%BC%92")]
+    [InlineData("/analytics/user?id=123456789012345678901")]
+    [InlineData("/analytics/user?id=1&id=2")]
+    [InlineData("/analytics/user?id=1&id=1")]
+    public async Task GetUserWhenIdIsInvalidReturnsBadRequestWithoutCallingTwitch(string uri)
+    {
+        // Arrange
+        using var factory = new TwitchApiFactory();
+        using var client = factory.CreateApiClient();
+
+        // Act
+        using var response = await client.GetAsync(new Uri(uri, UriKind.Relative));
+
+        // Assert
+        await ResponseAssert.AssertJsonResponse(
+            response,
+            HttpStatusCode.BadRequest,
+            """{"error":"Invalid or missing 'id' parameter."}""");
+        Assert.Empty(factory.Twitch.RequestsTo(FakeTwitch.UsersPath));
+        Assert.Empty(factory.Twitch.RequestsTo(FakeTwitch.TokenPath));
+    }
 }

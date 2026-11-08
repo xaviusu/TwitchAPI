@@ -6,5 +6,5 @@ public interface ITwitchClient
 {
     Task<IReadOnlyList<LiveStream>> GetLiveStreamsAsync(CancellationToken cancellationToken);
 
-    Task<TwitchUser?> FindUserByIdAsync(string twitchUserId, CancellationToken cancellationToken);
+    Task<TwitchUser?> FindUserByIdAsync(TwitchUserId twitchUserId, CancellationToken cancellationToken);
 }

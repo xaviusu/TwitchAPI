@@ -21,9 +21,9 @@ internal sealed class HelixTwitchClient(
         return [.. page.Data.Select(stream => new LiveStream(stream.Title, stream.UserName))];
     }
 
-    public async Task<TwitchUser?> FindUserByIdAsync(string twitchUserId, CancellationToken cancellationToken)
+    public async Task<TwitchUser?> FindUserByIdAsync(TwitchUserId twitchUserId, CancellationToken cancellationToken)
     {
-        var usersUri = new Uri($"users?id={Uri.EscapeDataString(twitchUserId)}", UriKind.Relative);
+        var usersUri = new Uri($"users?id={Uri.EscapeDataString(twitchUserId.Value)}", UriKind.Relative);
         var page = await GetPageAsync<HelixUser>(usersUri, cancellationToken);
         return page.Data.Select(user => new TwitchUser(
             Id: user.Id,

@@ -7,9 +7,6 @@ namespace TwitchAPI.Api.ErrorHandling;
 internal sealed partial class TwitchUnauthorizedExceptionHandler(ILogger<TwitchUnauthorizedExceptionHandler> logger)
     : IExceptionHandler
 {
-    private static readonly ErrorResponse UnauthorizedError =
-        new("Unauthorized. Twitch access token is invalid or has expired.");
-
     public async ValueTask<bool> TryHandleAsync(
         HttpContext httpContext,
         Exception exception,
@@ -22,7 +19,7 @@ internal sealed partial class TwitchUnauthorizedExceptionHandler(ILogger<TwitchU
 
         LogTwitchUnauthorized(exception);
         httpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
-        await httpContext.Response.WriteAsJsonAsync(UnauthorizedError, cancellationToken);
+        await httpContext.Response.WriteAsJsonAsync(ErrorResponse.Unauthorized, cancellationToken);
         return true;
     }
 
