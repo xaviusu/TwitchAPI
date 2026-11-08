@@ -86,6 +86,8 @@ dotnet format --verify-no-changes
 
 Las pruebas son de integración por HTTP con **xUnit** y `WebApplicationFactory<Program>`. El factory de test (`TwitchApiFactory`) inyecta credenciales falsas, sustituye `TimeProvider` por `FakeTimeProvider` y cambia el `HttpMessageHandler` primario de los `HttpClient` por un **Twitch falso** (`FakeTwitch`) que responde a `/oauth2/token` y a `/helix/*` y registra las peticiones. Las pruebas no llaman a Twitch real ni dependen de user secrets.
 
+La única excepción a esa seam única es el test de concurrencia del App Access Token: el factory envuelve el proveedor real del token (`AccessTokenWaiters`) para contar las peticiones que ya están esperando la renovación. Desde el Twitch falso solo se ve la petición que llega a `/oauth2/token`; las demás esperan dentro de la API. Sin ese contador, saber cuándo soltar la respuesta del token dependería de una espera real y el test no sería determinista. El envoltorio no cambia el comportamiento: delega siempre en el proveedor real.
+
 Las reglas compartidas de compilación y análisis están definidas en `Directory.Build.props`; las convenciones de formato y estilo están en `.editorconfig`.
 
 GitHub Actions (`.github/workflows/ci.yml`) ejecuta en cada pull request y en cada push a cualquier rama la compilación con warnings como errores (`-warnaserror`), las pruebas y `dotnet format --verify-no-changes`.
