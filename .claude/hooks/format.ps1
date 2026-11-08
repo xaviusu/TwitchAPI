@@ -14,6 +14,6 @@ if (-not $full.StartsWith($root, [StringComparison]::OrdinalIgnoreCase)) { exit 
 $relative = $full.Substring($root.Length).TrimStart('\', '/')
 
 Set-Location $root
-dotnet format TwitchAPI.slnx --include $relative --verbosity quiet | Out-Null
+dotnet format whitespace TwitchAPI.slnx --include $relative --verbosity quiet | Out-Null
 if ($LASTEXITCODE -ne 0) { [Console]::Error.WriteLine("dotnet format failed for $relative"); exit 1 }
 exit 0
