@@ -42,7 +42,7 @@ internal sealed class HelixTwitchClient(
     {
         using var response = await SendWithOneRenewalAsync(relativeUri, cancellationToken);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<HelixPage<T>>(cancellationToken)
+        return await response.Content.ReadFromJsonAsync<HelixPage<T>>(TwitchJson.Options, cancellationToken)
             ?? throw new InvalidOperationException($"Twitch returned an empty response for {relativeUri}.");
     }
 

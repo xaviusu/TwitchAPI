@@ -36,6 +36,7 @@ public sealed class FakeTwitch
     private readonly ConcurrentQueue<RecordedRequest> _requests = new();
     private readonly ConcurrentDictionary<string, ConcurrentQueue<(HttpStatusCode Status, string Json)>> _onceResponses = new();
     private readonly ConcurrentDictionary<string, Task> _holds = new();
+    private readonly ConcurrentDictionary<string, Exception> _failures = new();
     private readonly ConcurrentDictionary<string, (HttpStatusCode Status, string Json)> _responses = new()
     {
         [TokenPath] = (HttpStatusCode.OK, TokenJson(DefaultAccessToken)),
@@ -56,6 +57,8 @@ public sealed class FakeTwitch
 
     public void HoldResponsesUntil(string path, Task release) => _holds[path] = release;
 
+    public void FailWith(string path, Exception exception) => _failures[path] = exception;
+
     public HttpMessageHandler CreateHandler() => new Handler(this);
 
     private async Task<HttpResponseMessage> HandleAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -73,6 +76,11 @@ public sealed class FakeTwitch
         if (_holds.TryGetValue(path, out var release))
         {
             await release.WaitAsync(cancellationToken);
+        }
+
+        if (_failures.TryGetValue(path, out var failure))
+        {
+            throw failure;
         }
 
         if (!TryTakeResponse(path, out var response))

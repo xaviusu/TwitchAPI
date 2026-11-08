@@ -37,9 +37,6 @@ public sealed class TwitchApiFactory : WebApplicationFactory<Program>
 
     public FakeLogCollector Logs => Services.GetFakeLogCollector();
 
-    public HttpClient CreateApiClient() =>
-        CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
-
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.ConfigureAppConfiguration(configuration => configuration.AddInMemoryCollection(_settings));

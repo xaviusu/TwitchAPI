@@ -83,7 +83,7 @@ internal sealed class AppAccessTokenProvider(
         }
 
         response.EnsureSuccessStatusCode();
-        var token = await response.Content.ReadFromJsonAsync<TokenResponse>(cancellationToken)
+        var token = await response.Content.ReadFromJsonAsync<TokenResponse>(TwitchJson.Options, cancellationToken)
             ?? throw new InvalidOperationException("Twitch returned an empty token response.");
         return new CachedToken(
             AccessToken: token.AccessToken,

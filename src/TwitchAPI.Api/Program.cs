@@ -12,11 +12,12 @@ builder.Services.AddControllers(options =>
         options.InvalidModelStateResponseFactory = _ => new BadRequestObjectResult(ErrorResponse.InvalidId));
 builder.Services.AddOpenApi();
 builder.Services.AddExceptionHandler<TwitchUnauthorizedExceptionHandler>();
+builder.Services.AddExceptionHandler<InternalServerErrorExceptionHandler>();
 builder.Services.AddTwitchInfrastructure(builder.Configuration);
 
 var app = builder.Build();
 
-app.UseEmptyBodyExceptionHandler();
+app.UseRegisteredExceptionHandlers();
 
 if (app.Environment.IsDevelopment())
 {
