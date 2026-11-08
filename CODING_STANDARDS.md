@@ -4,7 +4,8 @@
 - Classes are `sealed` unless designed for inheritance. Prefer primary constructors.
 - API contracts are `record`s with `[JsonPropertyName]` in snake_case.
 - Logging uses `[LoggerMessage]` source-generated methods.
-- Tests: `MethodWhenConditionReturnsResult` naming, Arrange / Act / Assert.
+- Tests: `MethodWhenConditionOutcome` naming (checked by `TestNamingTests`),
+  Arrange / Act / Assert.
 - One behavior per test: one scenario and the assertions describing its
   observable result (status, body and calls to the fake Twitch count as one
   behavior).
