@@ -88,7 +88,7 @@ Las pruebas son de integración por HTTP con **xUnit** y `WebApplicationFactory<
 
 Las reglas compartidas de compilación y análisis están definidas en `Directory.Build.props`; las convenciones de formato y estilo están en `.editorconfig`.
 
-GitHub Actions (`.github/workflows/ci.yml`) ejecuta en cada pull request y en cada push a `main` la compilación con warnings como errores (`-warnaserror`), las pruebas y `dotnet format --verify-no-changes`.
+GitHub Actions (`.github/workflows/ci.yml`) ejecuta en cada pull request y en cada push a cualquier rama la compilación con warnings como errores (`-warnaserror`), las pruebas y `dotnet format --verify-no-changes`.
 
 ## Estructura y arquitectura
 
